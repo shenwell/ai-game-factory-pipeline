@@ -23,6 +23,7 @@ This repository is the **factory** (Python CLI, templates, vendor sync), not a G
 
 ```text
 game-factory status
+game-factory onboard
 game-factory migrate
 pytest tests/
 python install/init.py --out <path>

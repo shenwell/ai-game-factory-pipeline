@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.2
+
+- After init, run onboarding checks (`game-factory onboard`): required files, config, Python, Godot/.NET, `KIE_API_KEY`. Init JSON includes `onboard`; humans read `docs/ONBOARDING.md`.
+
 ## 1.1.1
 
 - Paths in docs, vendor sync, gate evidence, and CLI output are project-relative. Local vendor sources default to sibling directories (`../godogen`, `../Second Games`) or `GODOGEN_ROOT` / `GODOT_CLI_CONTROL_ROOT`.

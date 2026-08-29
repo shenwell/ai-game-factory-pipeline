@@ -62,6 +62,7 @@ Two human gates per run: design approval (`awaitingDesignApproval`) and playtest
 From project root (with venv or `pip install -e` on ai-game-factory):
 
 ```text
+game-factory onboard
 game-factory status
 game-factory validate-config
 game-factory verify fast|full|visual

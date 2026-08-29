@@ -23,7 +23,7 @@ pip install -e ".[dev]"
 python scripts/vendor/sync-upstream.py
 python install/init.py --out ../my-new-game
 cd ../my-new-game
-game-factory status
+game-factory onboard
 ```
 
 ## Configuration
@@ -34,6 +34,7 @@ Runtime state: `.game-factory/state.json` (written only by `game-factory transit
 
 ## Commands (Cursor)
 
+- `/game-factory-onboard`
 - `/game-factory-mvp`
 - `/game-factory-playtest`
 - `/game-factory-produce`
@@ -43,6 +44,7 @@ Runtime state: `.game-factory/state.json` (written only by `game-factory transit
 ## CLI
 
 ```text
+game-factory onboard
 game-factory status
 game-factory validate-config
 game-factory verify fast|full|visual

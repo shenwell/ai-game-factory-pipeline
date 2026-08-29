@@ -10,7 +10,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-FACTORY_VERSION = "1.1.1"
+FACTORY_VERSION = "1.1.2"
 FORBIDDEN_IN_TARGET = {".git"}
 
 
@@ -18,6 +18,22 @@ def _result_payload(target: Path, mode: str, **extra) -> dict:
     payload = {"ok": True, "path": Path(target).as_posix(), "factory_version": FACTORY_VERSION, "mode": mode}
     payload.update(extra)
     return payload
+
+
+def _onboard_report(target: Path) -> dict:
+    src = Path(__file__).resolve().parents[1] / "src"
+    if str(src) not in sys.path:
+        sys.path.insert(0, str(src))
+    from game_factory.onboard import format_onboard_line, run_onboard
+
+    report = run_onboard(target.resolve())
+    print(format_onboard_line(report), file=sys.stderr)
+    return report
+
+
+def _emit(payload: dict, target: Path) -> None:
+    payload["onboard"] = _onboard_report(target)
+    print(json.dumps(payload, indent=2))
 
 
 def _is_empty_dir(path: Path) -> bool:
@@ -76,6 +92,7 @@ def _publish_skills(factory_root: Path, target: Path) -> None:
         "game-factory-playtest",
         "game-factory-status",
         "game-factory-config",
+        "game-factory-onboard",
     ):
         src = factory_root / "templates" / "skills" / name
         if src.exists():
@@ -186,7 +203,7 @@ def init_project(factory_root: Path, target: Path) -> None:
                 dest.unlink()
         shutil.move(str(child), str(dest))
     shutil.rmtree(staging)
-    print(json.dumps(_result_payload(target, "fresh")))
+    _emit(_result_payload(target, "fresh"), target)
 
 
 def init_into_existing(factory_root: Path, target: Path) -> None:
@@ -197,7 +214,7 @@ def init_into_existing(factory_root: Path, target: Path) -> None:
     if _is_factory_project(target):
         raise SystemExit(f"Already a factory project; use --upgrade instead: {target}")
     _overlay_factory(factory_root, target, skip_existing_docs=True)
-    print(json.dumps(_result_payload(requested, "into-existing")))
+    _emit(_result_payload(requested, "into-existing"), target)
 
 
 def upgrade_project(factory_root: Path, target: Path) -> None:
@@ -218,7 +235,17 @@ def upgrade_project(factory_root: Path, target: Path) -> None:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["factory_version"] = FACTORY_VERSION
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    print(json.dumps(_result_payload(requested, "upgrade", migration=mig)))
+    _copy_tree(
+        factory_root / "templates" / "project" / "docs" / "ONBOARDING.md",
+        target / "docs" / "ONBOARDING.md",
+        skip_existing=True,
+    )
+    _copy_tree(
+        factory_root / "templates" / "project" / ".cursor" / "commands" / "game-factory-onboard.md",
+        target / ".cursor" / "commands" / "game-factory-onboard.md",
+        skip_existing=True,
+    )
+    _emit(_result_payload(requested, "upgrade", migration=mig), target)
 
 
 def main() -> int:

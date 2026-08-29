@@ -12,6 +12,7 @@ from game_factory.state import load_state
 from game_factory.adapters.orca import client as orca_client
 from game_factory.assets.providers import opensource as oss_assets
 from game_factory.migrations.runner import run_migrations
+from game_factory.onboard import format_onboard_line, run_onboard
 from game_factory.paths import join_project, relpath
 from game_factory.production import worktrees
 from game_factory.production.producer import close_batch, plan_batch, production_status
@@ -29,6 +30,14 @@ def cmd_status(args: argparse.Namespace) -> int:
     out = {"factory_version": __version__, "state": state, "config_loaded": cfg is not None}
     print(json.dumps(out, indent=2))
     return 0
+
+
+def cmd_onboard(args: argparse.Namespace) -> int:
+    root = Path(args.project).resolve()
+    report = run_onboard(root)
+    print(json.dumps(report, indent=2))
+    print(format_onboard_line(report), file=sys.stderr)
+    return 0 if report["ok"] else 1
 
 
 def cmd_verify(args: argparse.Namespace) -> int:
@@ -140,6 +149,9 @@ def main(argv: list[str] | None = None) -> int:
 
     p_status = sub.add_parser("status")
     p_status.set_defaults(func=cmd_status)
+
+    p_onboard = sub.add_parser("onboard", help="Verify files and toolchain after install")
+    p_onboard.set_defaults(func=cmd_onboard)
 
     p_val = sub.add_parser("validate-config")
     p_val.set_defaults(func=cmd_validate_config)

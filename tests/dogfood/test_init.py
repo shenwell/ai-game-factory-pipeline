@@ -42,3 +42,4 @@ def test_init_empty_dir(tmp_path: Path, factory_root: Path):
     assert (target / "AGENTS.md").exists()
     state = json.loads((target / ".game-factory" / "state.json").read_text(encoding="utf-8"))
     assert state["phase"] == "bootstrap"
+    assert (target / "docs" / "ONBOARDING.md").exists()

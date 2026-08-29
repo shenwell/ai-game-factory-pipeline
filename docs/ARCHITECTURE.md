@@ -4,7 +4,7 @@ Portable core: `src/game_factory/` (Python CLI, schemas, gates, Kie client, prod
 
 Vendored upstream: `vendor/` — sync via `scripts/vendor/sync-upstream.py`.
 
-Installed project layout: see plan `templates/project/`.
+Installed project layout: see `templates/project/`. After init, `game-factory onboard` checks files and toolchain.
 
 Adapters:
 

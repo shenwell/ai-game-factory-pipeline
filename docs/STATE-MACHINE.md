@@ -1,6 +1,6 @@
 # State machine
 
-Phases: `bootstrap` → `design` → `awaitingDesignApproval` → `mvpBuild` → `mvpVerify` → `awaitingPlaytest` → `production` → `releaseCandidate` → `done`.
+Phases: `bootstrap` (run `game-factory onboard`) → `design` → `awaitingDesignApproval` → `mvpBuild` → `mvpVerify` → `awaitingPlaytest` → `production` → `releaseCandidate` → `done`.
 
 Human gates: `awaitingDesignApproval`, `awaitingPlaytest`.
 

@@ -5,4 +5,4 @@ globs:
 alwaysApply: true
 ---
 
-Read `game-factory.config.yaml` for all project settings. Use `/game-factory-*` commands and `factory` CLI. Assets via Kie.ai only (`KIE_API_KEY`). See `AGENTS.md`.
+Read `game-factory.config.yaml` for all project settings. After install run `/game-factory-onboard`. Use `/game-factory-*` commands and `game-factory` CLI. Assets via Kie.ai only (`KIE_API_KEY`). See `AGENTS.md`.
