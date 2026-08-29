@@ -1,0 +1,29 @@
+[
+  {
+    "id": "kenney-platformer",
+    "title": "Platformer Pack Redux",
+    "author": "Kenney",
+    "license": "CC0",
+    "url": "https://kenney.nl/assets/platformer-pack-redux",
+    "tags": ["platformer", "2d", "tiles"],
+    "format": "zip"
+  },
+  {
+    "id": "kenney-ui",
+    "title": "UI Pack",
+    "author": "Kenney",
+    "license": "CC0",
+    "url": "https://kenney.nl/assets/ui-pack",
+    "tags": ["ui", "2d", "buttons"],
+    "format": "zip"
+  },
+  {
+    "id": "opengameart-cc0-tiles",
+    "title": "CC0 Pixel Tiles (curated)",
+    "author": "OpenGameArt community",
+    "license": "CC0",
+    "url": "https://opengameart.org/content/cc0-pixel-art-tileset",
+    "tags": ["pixel", "tiles", "2d"],
+    "format": "page"
+  }
+]

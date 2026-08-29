@@ -9,6 +9,6 @@ Installed project layout: see plan `templates/project/`.
 Adapters:
 
 - `adapters/cursor/` — thin command aliases (installed into `.cursor/commands/`)
-- `adapters/orca/` — v1.1 dispatch contract stub
+- `adapters/orca/` — v1.1 `dispatch/status/collect/cancel` via `game-factory orca`
 
 Host-neutral: no Cursor tool names in `src/game_factory/`.

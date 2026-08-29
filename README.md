@@ -2,6 +2,19 @@
 
 Godot 4 .NET/C# **game project factory** — not a game. Installs into an **empty** directory and runs a phased pipeline: design → MVP → playtest → production → done.
 
+## v1.1
+
+```powershell
+python install/init.py --out "D:\Games\my-godot-game" --into-existing
+python install/init.py --out "D:\Games\my-game" --upgrade
+game-factory migrate
+game-factory orca dispatch --work-order .game-factory/jobs/wo-ui-2.json
+game-factory assets search platformer --license CC0
+game-factory worktree add --zone ui --writer w1
+```
+
+See `CHANGELOG.md`.
+
 ## Quick start
 
 ```powershell
@@ -56,3 +69,7 @@ python scripts/vendor/sync-upstream.py
 - `docs/KIE-ASSETS.md`
 - `docs/ORCA-ADAPTER.md`
 - `docs/GATE-BENCHMARK.md`
+
+## Agent memory
+
+Factory development uses `AGENTS.md` and `MEMORY.md` with [memo-session-skill](https://github.com/shenwell/ai-agent-skills/tree/main/skills/memo-session-skill). Installed games use their own `AGENTS.md` from init.

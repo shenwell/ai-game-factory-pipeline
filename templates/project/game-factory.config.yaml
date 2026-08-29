@@ -1,4 +1,4 @@
-schema_version: 1
+schema_version: 2
 
 project:
   name: ""
@@ -17,7 +17,7 @@ pipeline:
 
 gates:
   fast: [config, drift, build, unit]
-  full: [fast, scene_build, import, launch, gameplay, errors]
+  full: [fast, scene_build, import, launch, gameplay, errors, glb_import]
   visual: [full, screenshots, proof_video]
   wall_seconds_blocker: null
 
@@ -27,6 +27,7 @@ production:
   max_l_per_batch: 2
   max_measurement_tasks: 2
   max_parallel_writers: 1
+  worktree_dir: .worktrees
 
 assets:
   provider: kie
@@ -42,6 +43,18 @@ assets:
     image_to_image: grok-imagine/image-to-image
     reference: nano-banana-pro
     image_to_video: grok-imagine/image-to-video
+  opensource:
+    enabled: false
+    allow_licenses: [CC0, CC-BY-4.0, MIT]
+    catalog: .game-factory/vendor/asset-catalog/kenney-index.json
+    require_checksum: true
+  models_3d:
+    user_glb_dir: assets/models
+    allow_procedural: true
 
 orchestration:
   adapter: cursor
+  orca_project_id: ""
+
+hosts:
+  engines: [godot]

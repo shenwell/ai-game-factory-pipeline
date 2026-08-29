@@ -1,12 +1,18 @@
 # Orca adapter (v1.1)
 
-v1 uses Cursor + `orchestration.adapter: cursor` in config.
+Host-neutral contract implemented in `src/game_factory/adapters/orca/client.py`.
 
-Orca will implement the same contract as `src/game_factory/adapters/orca/dispatch.md`:
+## CLI
 
-- `dispatch(work_order.json)`
-- `status(job_id)`
-- `collect(job_id)`
-- `cancel(job_id)`
+```text
+game-factory orca dispatch --work-order .game-factory/jobs/wo-ui-2.json
+game-factory orca status --job-id orca-abc123
+game-factory orca collect --job-id orca-abc123
+game-factory orca cancel --job-id orca-abc123
+```
+
+Set `orchestration.adapter: orca` and `orchestration.orca_project_id` in `game-factory.config.yaml`.
+
+When the `orca` CLI is on PATH, `dispatch` calls `orca orchestration task-create`; otherwise jobs stay in `queued_local` mode under `.game-factory/jobs/orca/`.
 
 Config, state, and work-order schemas are unchanged.

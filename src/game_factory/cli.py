@@ -9,6 +9,10 @@ from game_factory import __version__
 from game_factory.config import load_config
 from game_factory.gates.runner import verify
 from game_factory.state import load_state
+from game_factory.adapters.orca import client as orca_client
+from game_factory.assets.providers import opensource as oss_assets
+from game_factory.migrations.runner import run_migrations
+from game_factory.production import worktrees
 from game_factory.production.producer import close_batch, plan_batch, production_status
 from game_factory.production.verifier import independent_verify
 from game_factory.transitions import transition
@@ -54,6 +58,61 @@ def cmd_produce_close(args: argparse.Namespace) -> int:
 def cmd_produce_status(args: argparse.Namespace) -> int:
     root = Path(args.project).resolve()
     print(json.dumps(production_status(root), indent=2))
+    return 0
+
+
+def cmd_migrate(args: argparse.Namespace) -> int:
+    root = Path(args.project).resolve()
+    result = run_migrations(root, __version__)
+    print(json.dumps(result, indent=2))
+    return 0
+
+
+def cmd_assets_search(args: argparse.Namespace) -> int:
+    root = Path(args.project).resolve()
+    hits = oss_assets.search_catalog(root, args.query, args.license)
+    print(json.dumps({"results": hits}, indent=2))
+    return 0
+
+
+def cmd_orca_dispatch(args: argparse.Namespace) -> int:
+    root = Path(args.project).resolve()
+    cfg = load_config(root)
+    pid = cfg.get("orchestration", {}).get("orca_project_id")
+    out = orca_client.dispatch(root, Path(args.work_order), orca_project_id=pid)
+    print(json.dumps(out, indent=2))
+    return 0
+
+
+def cmd_orca_status(args: argparse.Namespace) -> int:
+    root = Path(args.project).resolve()
+    print(json.dumps(orca_client.status(root, args.job_id), indent=2))
+    return 0
+
+
+def cmd_orca_collect(args: argparse.Namespace) -> int:
+    root = Path(args.project).resolve()
+    print(json.dumps(orca_client.collect(root, args.job_id), indent=2))
+    return 0
+
+
+def cmd_orca_cancel(args: argparse.Namespace) -> int:
+    root = Path(args.project).resolve()
+    print(json.dumps(orca_client.cancel(root, args.job_id), indent=2))
+    return 0
+
+
+def cmd_worktree_add(args: argparse.Namespace) -> int:
+    root = Path(args.project).resolve()
+    path = worktrees.create_writer_worktree(root, args.zone, args.writer)
+    print(json.dumps({"worktree": str(path)}, indent=2))
+    return 0
+
+
+def cmd_worktree_remove(args: argparse.Namespace) -> int:
+    root = Path(args.project).resolve()
+    worktrees.remove_writer_worktree(root, args.zone, args.writer)
+    print(json.dumps({"ok": True}, indent=2))
     return 0
 
 
@@ -109,6 +168,42 @@ def main(argv: list[str] | None = None) -> int:
 
     p_vrel = sub.add_parser("verify-release")
     p_vrel.set_defaults(func=cmd_verify_release)
+
+    p_mig = sub.add_parser("migrate")
+    p_mig.set_defaults(func=cmd_migrate)
+
+    p_assets = sub.add_parser("assets")
+    assets_sub = p_assets.add_subparsers(dest="assets_cmd", required=True)
+    p_search = assets_sub.add_parser("search")
+    p_search.add_argument("query", default="", nargs="?")
+    p_search.add_argument("--license", default=None)
+    p_search.set_defaults(func=cmd_assets_search)
+
+    p_orca = sub.add_parser("orca")
+    orca_sub = p_orca.add_subparsers(dest="orca_cmd", required=True)
+    p_od = orca_sub.add_parser("dispatch")
+    p_od.add_argument("--work-order", required=True)
+    p_od.set_defaults(func=cmd_orca_dispatch)
+    p_os = orca_sub.add_parser("status")
+    p_os.add_argument("--job-id", required=True)
+    p_os.set_defaults(func=cmd_orca_status)
+    p_oc = orca_sub.add_parser("collect")
+    p_oc.add_argument("--job-id", required=True)
+    p_oc.set_defaults(func=cmd_orca_collect)
+    p_ox = orca_sub.add_parser("cancel")
+    p_ox.add_argument("--job-id", required=True)
+    p_ox.set_defaults(func=cmd_orca_cancel)
+
+    p_wt = sub.add_parser("worktree")
+    wt_sub = p_wt.add_subparsers(dest="wt_cmd", required=True)
+    p_wa = wt_sub.add_parser("add")
+    p_wa.add_argument("--zone", required=True)
+    p_wa.add_argument("--writer", required=True)
+    p_wa.set_defaults(func=cmd_worktree_add)
+    p_wr = wt_sub.add_parser("remove")
+    p_wr.add_argument("--zone", required=True)
+    p_wr.add_argument("--writer", required=True)
+    p_wr.set_defaults(func=cmd_worktree_remove)
 
     args = parser.parse_args(argv)
     return args.func(args)

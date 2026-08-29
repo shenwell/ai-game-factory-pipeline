@@ -6,7 +6,7 @@
   "required": ["schema_version", "project", "toolchain", "pipeline", "gates", "production", "assets", "orchestration"],
   "additionalProperties": false,
   "properties": {
-    "schema_version": { "type": "integer", "const": 1 },
+    "schema_version": { "type": "integer", "enum": [1, 2] },
     "project": {
       "type": "object",
       "required": ["name", "display_name", "dimension", "logical_resolution"],
@@ -62,7 +62,8 @@
         "max_xl_per_batch": { "type": "integer" },
         "max_l_per_batch": { "type": "integer" },
         "max_measurement_tasks": { "type": "integer" },
-        "max_parallel_writers": { "type": "integer", "minimum": 1 }
+        "max_parallel_writers": { "type": "integer", "minimum": 1 },
+        "worktree_dir": { "type": "string" }
       }
     },
     "assets": {
@@ -91,6 +92,22 @@
             "reference": { "type": "string" },
             "image_to_video": { "type": "string" }
           }
+        },
+        "opensource": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "allow_licenses": { "type": "array", "items": { "type": "string" } },
+            "catalog": { "type": "string" },
+            "require_checksum": { "type": "boolean" }
+          }
+        },
+        "models_3d": {
+          "type": "object",
+          "properties": {
+            "user_glb_dir": { "type": "string" },
+            "allow_procedural": { "type": "boolean" }
+          }
         }
       }
     },
@@ -98,7 +115,14 @@
       "type": "object",
       "required": ["adapter"],
       "properties": {
-        "adapter": { "enum": ["cursor", "orca"] }
+        "adapter": { "enum": ["cursor", "orca"] },
+        "orca_project_id": { "type": "string" }
+      }
+    },
+    "hosts": {
+      "type": "object",
+      "properties": {
+        "engines": { "type": "array", "items": { "type": "string" } }
       }
     }
   }

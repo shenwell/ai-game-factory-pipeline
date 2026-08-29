@@ -21,6 +21,7 @@ STEP_RUNNERS = {
     "errors": "_step_errors",
     "screenshots": "_step_screenshots",
     "proof_video": "_step_proof_video",
+    "glb_import": "_step_glb_import",
 }
 
 
@@ -111,6 +112,27 @@ def _step_proof_video(project_root: Path) -> dict[str, Any]:
     vdir = project_root / "screenshots" / "result"
     ok = vdir.exists() and any(vdir.glob("*.mp4")) or any(vdir.glob("frame*.png"))
     return {"name": "proof_video", "ok": ok, "exit_code": 0 if ok else 1}
+
+
+def _step_glb_import(project_root: Path) -> dict[str, Any]:
+    from game_factory.config import load_config
+
+    try:
+        cfg = load_config(project_root)
+    except Exception:
+        return {"name": "glb_import", "ok": True, "exit_code": 0, "evidence": ["no config"]}
+    if cfg.get("project", {}).get("dimension") != "3d":
+        return {"name": "glb_import", "ok": True, "exit_code": 0, "evidence": ["2d project"]}
+    glb_dir = Path(cfg.get("assets", {}).get("models_3d", {}).get("user_glb_dir", "assets/models"))
+    root = project_root / glb_dir
+    glbs = list(root.glob("**/*.glb")) if root.exists() else []
+    ok = len(glbs) > 0 or cfg.get("assets", {}).get("models_3d", {}).get("allow_procedural", True)
+    return {
+        "name": "glb_import",
+        "ok": ok,
+        "exit_code": 0 if ok else 1,
+        "evidence": [str(p) for p in glbs[:5]],
+    }
 
 
 def verify(project_root: Path, profile: str) -> dict[str, Any]:
