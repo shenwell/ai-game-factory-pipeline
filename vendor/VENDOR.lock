@@ -1,0 +1,9 @@
+{
+  "synced_at": "2026-08-29T00:00:00Z",
+  "sources": {
+    "godogen": { "commit": "local" },
+    "gamestudio": { "commit": "shallow-clone" },
+    "game-design": { "commit": "shallow-clone" },
+    "godot_cli_control": { "commit": "local" }
+  }
+}

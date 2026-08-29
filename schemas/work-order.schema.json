@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-game-factory.local/schemas/work-order.schema.json",
+  "title": "work order",
+  "type": "object",
+  "required": ["id", "zone", "task_ids", "allowed_globs", "forbidden_globs", "acceptance_criteria", "risk_class"],
+  "properties": {
+    "id": { "type": "string" },
+    "zone": { "type": "string" },
+    "task_ids": { "type": "array", "items": { "type": "string" } },
+    "allowed_globs": { "type": "array", "items": { "type": "string" } },
+    "forbidden_globs": { "type": "array", "items": { "type": "string" } },
+    "acceptance_criteria": { "type": "array", "items": { "type": "string" } },
+    "evidence_commands": { "type": "array", "items": { "type": "string" } },
+    "risk_class": { "enum": ["layout", "state", "norms", "assets"] },
+    "weight_total": { "type": "integer" }
+  }
+}

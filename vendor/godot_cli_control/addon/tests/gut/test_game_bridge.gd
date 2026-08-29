@@ -1,0 +1,705 @@
+## GUT 单元测试：GameBridge JSON-RPC 路由器
+##
+## 策略：测试覆盖 _handle_message 的 dispatch 全部分支 —— 不起 TCPServer / WebSocket，
+## 不进 scene tree（避免 _ready 跑 listen()/queue_free）。
+##   1. TestableGameBridge.new() 是 orphan Node；_ready 不触发。
+##   2. 手动塞 _low_level_api / _input_sim_api（StubLowLevelApi / StubInputSimulationApi）
+##      并调 _register_methods()，让方法表指向 stub 的 handler。
+##   3. 子类 override _send_json 把出站帧捕获到 captured_frames，
+##      跳过 _active_peer 状态检查这一现实依赖。
+##   4. 直接调 _handle_message(raw_json_string) 触发路由；async 路径用
+##      await get_tree().process_frame 等待 stub 通过 callback 回响。
+##
+## 这套测试用来拦的回归（最近三个 commit 都改这一带，黑盒测了但缺单测）：
+##   - b1f2ec9: NodePath 子属性黑名单（实际由 LowLevelApi 测 —— bridge 只测路由）
+##   - e7b9768: async type-check（async handler 返回 null/非 dict 必须发 -32603 而非挂死）
+##   - b654259: id/method/params 类型严校验
+extends GutTest
+
+const GameBridgeScript := preload("res://addons/godot_cli_control/bridge/game_bridge.gd")
+const LowLevelApiScript := preload("res://addons/godot_cli_control/bridge/low_level_api.gd")
+const InputSimulationApiScript := preload("res://addons/godot_cli_control/bridge/input_simulation_api.gd")
+const WaitApiScript := preload("res://addons/godot_cli_control/bridge/wait_api.gd")
+
+
+# ── 子类：捕获 _send_json 出站 + 跳过 peer 状态检查 ──────────────────
+
+class TestableGameBridge:
+	extends GameBridge
+	var captured_frames: Array = []
+
+	func _send_json(data: Dictionary) -> void:
+		# 不检查 _active_peer —— 测试场景里它就是 null。直接把帧记下来。
+		captured_frames.append(data)
+
+
+# ── 子类：模拟「peer 在线 + 发送失败」以测 _send_json 失败分支（issue #160）──
+# 只 override 两个接缝，保留真 _send_json 编排逻辑（区别于 TestableGameBridge）。
+
+class FailingTransmitBridge:
+	extends GameBridge
+	var transmit_calls: Array = []   # 每次 _transmit 的入参文本
+	var fail_first: bool = true      # true: 第一发返回 ERR_OUT_OF_MEMORY，后续（补发）成功
+	var fail_all: bool = false       # true: 每一发都失败（测补发也失败的「只留痕不再补发」分支）
+
+	func _can_transmit() -> bool:
+		return true                  # 绕过真 peer：GUT 无真 socket
+
+	func _transmit(text: String) -> Error:
+		transmit_calls.append(text)
+		if fail_all:
+			return ERR_OUT_OF_MEMORY
+		if fail_first and transmit_calls.size() == 1:
+			return ERR_OUT_OF_MEMORY
+		return OK
+
+
+# ── 桩 LowLevelApi：sync handler 覆盖 1 个，返回值由测试预置 ──
+
+class StubLowLevelApi:
+	extends LowLevelApi
+	# 每个 handler 的预置返回值 + 调用记录
+	var click_return: Dictionary = {"success": true}
+	var click_calls: Array = []
+
+	func handle_click(params: Dictionary) -> Dictionary:
+		click_calls.append(params)
+		return click_return
+
+
+# ── 桩 WaitApi：async handler 覆盖 1 个，返回值由测试预置 ──
+
+class StubWaitApi:
+	extends WaitApi
+	# 父类签名 -> Dictionary 是静态类型契约，override 不能放宽到 Variant；
+	# async type-guard（返回非 dict）由测试通过外部 Callable 注入到 _methods。
+	var wait_for_node_return: Dictionary = {"found": true}
+	var wait_for_node_calls: Array = []
+	# #172 item1：spy notify_start_timer 转发的 req_id，验证 game_bridge 路由。
+	# 真实计时行为由 test_wait_api 测；这里只关心 bridge 把 req_id 转给了 WaitApi。
+	var notify_start_timer_calls: Array = []
+
+	func wait_for_node_async(params: Dictionary) -> Dictionary:
+		wait_for_node_calls.append(params)
+		# 推一帧让调用方真的走 await 路径
+		await get_tree().process_frame
+		return wait_for_node_return
+
+	func notify_start_timer(req_id: String) -> void:
+		notify_start_timer_calls.append(req_id)
+
+
+# ── 桩 InputSimulationApi：sync handler + async_with_id（combo） ──
+
+class StubInputSimulationApi:
+	extends InputSimulationApi
+	var press_return: Dictionary = {"success": true}
+	var press_calls: Array = []
+	# combo 控制：测试通过 finish_combo() 决定何时回响 + 返回什么
+	var combo_calls: Array = []  # [{params, request_id}]
+	var combo_callback: Callable = Callable()
+
+	func setup(send_response: Callable) -> void:
+		# GameBridge._ready 调 setup() 时不会跑（orphan 实例），但
+		# _register_methods 之前测试会手动调一次。
+		combo_callback = send_response
+
+	# 断连测试用的 release_all 调用计数（不 override 行为，仅记账后走父类）
+	var release_all_calls: int = 0
+
+	func handle_action_press(params: Dictionary) -> Dictionary:
+		press_calls.append(params)
+		return press_return
+
+	func release_all() -> void:
+		release_all_calls += 1
+		super()
+
+	func handle_combo(params: Dictionary, request_id: String) -> void:
+		# 不立刻回响 —— 把 (params, request_id) 记下来；测试通过 finish_combo
+		# 显式触发 callback，模拟真实 combo 完成路径。
+		combo_calls.append({"params": params, "request_id": request_id})
+
+	func finish_combo(index: int, result: Dictionary) -> void:
+		var entry: Dictionary = combo_calls[index]
+		combo_callback.call(entry["request_id"], result)
+
+
+# ── 测试夹具 ────────────────────────────────────────────────────────
+
+var _bridge: TestableGameBridge
+var _low: StubLowLevelApi
+var _input: StubInputSimulationApi
+var _wait: StubWaitApi
+var _scene: SceneApi
+var _time: TimeApi
+var _render: RenderApi
+var _diag: DiagnosticsApi
+
+
+func before_each() -> void:
+	_bridge = TestableGameBridge.new()
+	# orphan：不 add_child 到 tree → _ready 不触发 → 跳过 listen() / queue_free
+	autofree(_bridge)
+
+	# 但 stub APIs 需要在 tree 内才能 await get_tree().process_frame
+	_low = StubLowLevelApi.new()
+	_low.name = "LowLevelApi"
+	add_child_autofree(_low)
+	_input = StubInputSimulationApi.new()
+	_input.name = "InputSimulationApi"
+	add_child_autofree(_input)
+
+	_wait = StubWaitApi.new()
+	_wait.name = "WaitApi"
+	add_child_autofree(_wait)
+
+	_scene = SceneApi.new()
+	_scene.name = "SceneApi"
+	add_child_autofree(_scene)
+
+	_time = TimeApi.new()
+	_time.name = "TimeApi"
+	add_child_autofree(_time)
+
+	_render = RenderApi.new()
+	_render.name = "RenderApi"
+	add_child_autofree(_render)
+
+	_diag = DiagnosticsApi.new()
+	_diag.name = "DiagnosticsApi"
+	add_child_autofree(_diag)
+
+	_bridge._low_level_api = _low
+	_bridge._input_sim_api = _input
+	_bridge._wait_api = _wait
+	_bridge._scene_api = _scene
+	_bridge._time_api = _time
+	_bridge._render_api = _render
+	_bridge._diag_api = _diag
+	# InputSim 的 callback：bridge 的 _on_async_response 把 (id, result) 转回 dispatch
+	_input.setup(_bridge._on_async_response)
+	_bridge._register_methods()
+
+
+# ── helper ──
+
+func _send(raw: String) -> void:
+	_bridge._handle_message(raw)
+
+
+func _last_frame() -> Dictionary:
+	assert_true(_bridge.captured_frames.size() > 0, "应该至少有一个出站帧")
+	return _bridge.captured_frames[-1]
+
+
+# ── 断连按 close code 区分清/不清 ───────────────────────────────────
+# 回归：CLI 每条子命令都是独立连接、跑完即「干净关闭」（close frame，code
+# 1000）。干净关闭不能 release_all，否则 `hold <dur>` 定时器没倒计时就被清掉
+# （只生效一帧），sticky `press` 也无法跨命令存活。只有「异常掉线」（崩溃 /
+# kill / 网络断，get_close_code() == -1）才 release_all 兜底卡死键。
+# handle_hold 是真实逻辑（桩未 override），用它验证 held 状态。
+# 用足够长的 duration，避免测试期间 _process 的 advance_timers 提前释放。
+
+func test_clean_disconnect_preserves_inputs() -> void:
+	var hold_action := "__test_clean_disc__"
+	if not InputMap.has_action(hold_action):
+		InputMap.add_action(hold_action)
+	_input.handle_hold({"action": hold_action, "duration": 999.0})
+	assert_true(hold_action in _input.get_pressed_actions(), "前置：hold 应在持有列表")
+
+	# 1000 = 正常 WebSocket close frame（CLI 命令跑完）
+	_bridge._handle_disconnect(1000)
+
+	assert_eq(_input.release_all_calls, 0, "干净关闭不应调用 release_all（hold/press 须跨命令存活）")
+	assert_true(hold_action in _input.get_pressed_actions(), "干净关闭后 hold 应仍存活")
+	assert_eq(_bridge._active_peer, null, "断连应清掉 _active_peer")
+
+	_input.release_all()
+	InputMap.erase_action(hold_action)
+
+
+func test_abnormal_disconnect_releases_inputs() -> void:
+	var hold_action := "__test_abnormal_disc__"
+	if not InputMap.has_action(hold_action):
+		InputMap.add_action(hold_action)
+	_input.handle_hold({"action": hold_action, "duration": 999.0})
+	assert_true(hold_action in _input.get_pressed_actions(), "前置：hold 应在持有列表")
+
+	# -1 = 异常掉线（无 close frame：崩溃 / kill / 网络断）
+	_bridge._handle_disconnect(-1)
+
+	assert_eq(_input.release_all_calls, 1, "异常掉线应调用 release_all 兜底卡死键")
+	assert_false(hold_action in _input.get_pressed_actions(), "异常掉线后 hold 应被释放")
+	assert_eq(_bridge._active_peer, null, "断连应清掉 _active_peer")
+
+	InputMap.erase_action(hold_action)
+
+
+# ── JSON / 协议层校验：-32600 ──────────────────────────────────────
+
+func test_invalid_json_emits_minus_32600_with_empty_id() -> void:
+	_send("not valid json {{")
+	var f: Dictionary = _last_frame()
+	assert_eq(str(f.get("id", "MISSING")), "")
+	assert_has(f, "error")
+	assert_eq(int(f.error.code), -32600)
+	assert_string_contains(str(f.error.message), "Invalid JSON")
+
+
+func test_non_dict_root_emits_minus_32600() -> void:
+	# 合法 JSON 但顶层是 array —— 不是 RPC 请求
+	_send("[1, 2, 3]")
+	var f: Dictionary = _last_frame()
+	assert_eq(int(f.error.code), -32600)
+
+
+func test_id_non_string_emits_minus_32600_with_empty_id() -> void:
+	# id 是数字时无法回响给客户端正确的 id，强制空串 + 协议错
+	_send('{"id": 42, "method": "click", "params": {}}')
+	var f: Dictionary = _last_frame()
+	assert_eq(str(f.get("id")), "", "id 非字符串时响应必须用空串而非数字")
+	assert_eq(int(f.error.code), -32600)
+	assert_string_contains(str(f.error.message), "id must be string")
+
+
+func test_method_non_string_emits_minus_32600() -> void:
+	_send('{"id": "x", "method": 123, "params": {}}')
+	var f: Dictionary = _last_frame()
+	assert_eq(str(f.id), "x")
+	assert_eq(int(f.error.code), -32600)
+	assert_string_contains(str(f.error.message), "method must be string")
+
+
+func test_method_empty_emits_minus_32600() -> void:
+	_send('{"id": "x", "method": "", "params": {}}')
+	var f: Dictionary = _last_frame()
+	assert_eq(int(f.error.code), -32600)
+	assert_string_contains(str(f.error.message), "Missing method")
+
+
+func test_params_non_dict_emits_minus_32600() -> void:
+	# params 是 array —— handler 内 .get 会崩，必须在路由层挡住
+	_send('{"id": "x", "method": "click", "params": [1, 2]}')
+	var f: Dictionary = _last_frame()
+	assert_eq(int(f.error.code), -32600)
+	assert_string_contains(str(f.error.message), "params must be object")
+
+
+func test_params_missing_treated_as_empty_dict() -> void:
+	# params 缺失 → handler 拿到空 dict（合法），不应报协议错
+	_send('{"id": "x", "method": "click"}')
+	var f: Dictionary = _last_frame()
+	assert_does_not_have(f, "error")
+	assert_eq(_low.click_calls.size(), 1)
+	assert_eq(_low.click_calls[0].size(), 0, "params 缺失应等价空 dict")
+
+
+func test_id_missing_defaults_to_empty_string() -> void:
+	# 客户端用 "" 当 fire-and-forget id；缺省也走这条路径，响应 id 也是 ""
+	_send('{"method": "click", "params": {}}')
+	var f: Dictionary = _last_frame()
+	assert_eq(str(f.get("id")), "")
+	assert_does_not_have(f, "error")
+
+
+# ── 方法层校验：-32601 ────────────────────────────────────────────
+
+func test_unknown_method_emits_minus_32601() -> void:
+	_send('{"id": "x", "method": "no_such_method", "params": {}}')
+	var f: Dictionary = _last_frame()
+	assert_eq(int(f.error.code), -32601)
+	assert_string_contains(str(f.error.message), "Unknown method")
+
+
+# ── sync 路径 ─────────────────────────────────────────────────────
+
+func test_sync_handler_success_emits_result_frame() -> void:
+	_low.click_return = {"success": true, "node_class": "Button"}
+	_send('{"id": "abc", "method": "click", "params": {"path": "/root/Btn"}}')
+	var f: Dictionary = _last_frame()
+	assert_eq(str(f.id), "abc")
+	assert_has(f, "result")
+	assert_does_not_have(f, "error")
+	assert_eq(f.result.success, true)
+	assert_eq(str(f.result.node_class), "Button")
+	# 参数透传到 stub
+	assert_eq(_low.click_calls[0].get("path"), "/root/Btn")
+
+
+func test_sync_handler_error_dict_emits_error_frame() -> void:
+	# handler 主动返回 {"error": {...}} —— _dispatch_result 应识别并发 error 帧
+	_low.click_return = {"error": {"code": 1001, "message": "Node not found"}}
+	_send('{"id": "x", "method": "click", "params": {"path": "/missing"}}')
+	var f: Dictionary = _last_frame()
+	assert_has(f, "error")
+	assert_does_not_have(f, "result", "error 路径不应同时带 result")
+	assert_eq(int(f.error.code), 1001)
+	assert_eq(str(f.error.message), "Node not found")
+
+
+func test_error_frame_carries_hint_for_registered_code() -> void:
+	# _send_error 是所有错误响应的唯一出口：已登记的码必须带 "hint"（下一步指引）
+	_low.click_return = {"error": {"code": 1001, "message": "Node not found"}}
+	_send('{"id": "x", "method": "click", "params": {"path": "/missing"}}')
+	var f: Dictionary = _last_frame()
+	assert_has(f.error, "hint")
+	assert_string_contains(str(f.error.hint), "find")
+
+
+func test_error_frame_omits_hint_for_unregistered_code() -> void:
+	# -32600 未登记 hint —— 不带空字段占位（信封字段有值才出现）
+	_send('not json at all')
+	var f: Dictionary = _last_frame()
+	assert_eq(int(f.error.code), -32600)
+	assert_does_not_have(f.error, "hint")
+
+
+# ── async 路径 ────────────────────────────────────────────────────
+
+func test_async_handler_success_emits_result_frame() -> void:
+	_wait.wait_for_node_return = {"found": true}
+	_send('{"id": "wait1", "method": "wait_for_node", "params": {"path": "/X", "timeout": 1.0}}')
+	# stub 的 await get_tree().process_frame 让响应延后一帧；推两帧足够
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var f: Dictionary = _last_frame()
+	assert_eq(str(f.id), "wait1")
+	assert_has(f, "result")
+	assert_eq(f.result.get("found"), true)
+
+
+func _async_returning_null(_params: Dictionary) -> Variant:
+	# 故意返回非 Dictionary 触发 _run_async 的 type-guard。
+	# 父类 WaitApi.wait_for_node_async 签名锁死 -> Dictionary，没法在 stub 里
+	# 直接 override 类型放宽，绕道：测试通过 Callable 注入 _methods 项。
+	await get_tree().process_frame
+	return null
+
+
+func _async_returning_string(_params: Dictionary) -> Variant:
+	await get_tree().process_frame
+	return "oops"
+
+
+func test_async_handler_returning_non_dict_emits_minus_32603() -> void:
+	# 关键回归（commit e7b9768）：async handler 返回 null / 字符串 → 必须发
+	# -32603，不能让响应永远不发，否则客户端 await 挂死到 30s timeout。
+	_bridge._methods["wait_for_node"] = {
+		"callable": _async_returning_null,
+		"kind": "async",
+	}
+	_send('{"id": "wait_null", "method": "wait_for_node", "params": {}}')
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var f: Dictionary = _last_frame()
+	assert_eq(str(f.id), "wait_null")
+	assert_has(f, "error", "async handler 返回 null 必须落到 -32603 错误")
+	assert_eq(int(f.error.code), -32603)
+	assert_string_contains(str(f.error.message), "non-dict")
+
+
+func test_async_handler_returning_string_emits_minus_32603() -> void:
+	# 防御性：handler 不小心 return "" 也走 type-guard
+	_bridge._methods["wait_for_node"] = {
+		"callable": _async_returning_string,
+		"kind": "async",
+	}
+	_send('{"id": "wait_str", "method": "wait_for_node", "params": {}}')
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var f: Dictionary = _last_frame()
+	assert_eq(int(f.error.code), -32603)
+
+
+# ── async_with_id 路径（input_combo） ──────────────────────────────
+
+func test_async_with_id_routes_request_id_to_handler() -> void:
+	_send('{"id": "combo1", "method": "input_combo", "params": {"steps": [{"action": "a", "duration": 0.1}]}}')
+	# handler 不立即响应：captured_frames 应为空
+	assert_eq(_bridge.captured_frames.size(), 0, "input_combo 是 async_with_id，不应同步发响应")
+	assert_eq(_input.combo_calls.size(), 1)
+	assert_eq(str(_input.combo_calls[0].request_id), "combo1")
+	# 触发 callback 回响
+	_input.finish_combo(0, {"success": true, "completed_steps": 1})
+	var f: Dictionary = _last_frame()
+	assert_eq(str(f.id), "combo1")
+	assert_has(f, "result")
+	assert_eq(int(f.result.completed_steps), 1)
+
+
+func test_async_with_id_error_callback_emits_error_frame() -> void:
+	# combo handler 通过 callback 回 error dict → bridge 应转成 error 帧
+	_send('{"id": "combo_err", "method": "input_combo", "params": {"steps": []}}')
+	_input.finish_combo(0, {"error": {"code": 1004, "message": "combo in progress"}})
+	var f: Dictionary = _last_frame()
+	assert_eq(str(f.id), "combo_err")
+	assert_has(f, "error")
+	assert_eq(int(f.error.code), 1004)
+
+
+func test_async_with_id_id_isolation_across_concurrent_requests() -> void:
+	# 三个 combo 请求并发，回调乱序触发：每条响应必须用对应的原始 id
+	_send('{"id": "c1", "method": "input_combo", "params": {"steps": []}}')
+	_send('{"id": "c2", "method": "input_combo", "params": {"steps": []}}')
+	_send('{"id": "c3", "method": "input_combo", "params": {"steps": []}}')
+	assert_eq(_input.combo_calls.size(), 3)
+	# 乱序回响
+	_input.finish_combo(1, {"success": true, "marker": "second"})
+	_input.finish_combo(0, {"success": true, "marker": "first"})
+	_input.finish_combo(2, {"success": true, "marker": "third"})
+	# 收集 (id, marker) 对，验证配对正确
+	var pairs: Dictionary = {}
+	for f in _bridge.captured_frames:
+		pairs[str(f.id)] = str((f.result as Dictionary).get("marker", ""))
+	assert_eq(pairs.get("c1"), "first")
+	assert_eq(pairs.get("c2"), "second")
+	assert_eq(pairs.get("c3"), "third")
+
+
+# ── 边界：空 id 仍是合法的 fire-and-forget ─────────────────────────
+
+func test_empty_id_fire_and_forget_still_routes() -> void:
+	# id="" 是合约：客户端不等响应，但 bridge 仍按协议发响应（带 id=""）
+	_send('{"id": "", "method": "click", "params": {"path": "/x"}}')
+	var f: Dictionary = _last_frame()
+	assert_eq(str(f.id), "")
+	assert_has(f, "result")
+
+
+# ── 注册表完整性：断 sync 实际有路由（防 _register_methods 退化） ────
+
+func test_sync_input_action_press_routes_to_input_sim_api() -> void:
+	_send('{"id": "p1", "method": "input_action_press", "params": {"action": "jump"}}')
+	var f: Dictionary = _last_frame()
+	assert_does_not_have(f, "error")
+	assert_eq(_input.press_calls.size(), 1)
+	assert_eq(str(_input.press_calls[0].action), "jump")
+
+
+# ── idle-timeout / in-flight 计数 ─────────────────────────────────
+# 防止回归：长操作（>idle_timeout 的 wait_game_time / combo）期间 _check_idle
+# 不能 quit，否则客户端拿不到响应。
+
+func test_in_flight_starts_at_zero() -> void:
+	assert_eq(_bridge._in_flight, 0)
+
+
+func test_sync_dispatch_returns_in_flight_to_zero() -> void:
+	_send('{"id": "s1", "method": "click", "params": {}}')
+	assert_eq(_bridge._in_flight, 0, "sync 派发完成后 _in_flight 必须归零")
+
+
+func test_async_dispatch_returns_in_flight_to_zero() -> void:
+	_send('{"id": "a1", "method": "wait_for_node", "params": {"path": "/X", "timeout": 1.0}}')
+	# stub 在 await get_tree().process_frame 期间 _in_flight 应保持 1
+	assert_eq(_bridge._in_flight, 1, "async 等待期间 _in_flight 应为 1")
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_bridge._in_flight, 0, "async 派发完成后 _in_flight 必须归零")
+
+
+func test_async_with_id_keeps_in_flight_until_callback() -> void:
+	# 关键场景：input_combo 长动作（实际可能 5s+）期间，daemon 不能因 idle quit
+	_send('{"id": "c1", "method": "input_combo", "params": {"steps": []}}')
+	assert_eq(_bridge._in_flight, 1, "async_with_id handler 未回响前 _in_flight 应为 1")
+	_input.finish_combo(0, {"success": true})
+	assert_eq(_bridge._in_flight, 0, "回调后 _in_flight 必须归零")
+
+
+func test_async_handler_returning_non_dict_decrements_in_flight() -> void:
+	# type-guard 路径也必须减计数，否则 handler bug 会让 daemon 永远不 idle
+	_bridge._methods["wait_for_node"] = {
+		"callable": _async_returning_null,
+		"kind": "async",
+	}
+	_send('{"id": "wn", "method": "wait_for_node", "params": {}}')
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_eq(_bridge._in_flight, 0, "非 dict 错误路径也必须把 _in_flight 减回 0")
+
+
+func test_validation_failure_does_not_increment_in_flight() -> void:
+	# Invalid JSON / 协议错没进过 handler，不应碰计数
+	_send("not json")
+	_send('{"id": 42, "method": "click"}')  # id 非串
+	_send('{"id": "x", "method": "no_such"}')  # 未知方法
+	assert_eq(_bridge._in_flight, 0, "校验失败路径不应增 _in_flight")
+
+
+func test_check_idle_resets_activity_when_busy() -> void:
+	# _check_idle 在 _in_flight > 0 时必须把活动戳推到现在 —— 否则一个跨越
+	# 整个 idle_timeout 的长操作会被 quit。
+	_bridge._idle_timeout_secs = 1
+	_bridge._in_flight = 1
+	_bridge._last_activity_ms = Time.get_ticks_msec() - 60_000  # 装作 60s 前
+	_bridge._check_idle()
+	var now: int = Time.get_ticks_msec()
+	assert_almost_eq(_bridge._last_activity_ms, now, 200, "busy 时 _check_idle 必须把活动戳推到 ~now")
+
+
+# ── 启动 gate (issue #61 H 部分) ─────────────────────────────────
+# GUT 跑 --headless → RenderingServer.get_rendering_device() == null → dummy 路径。
+# 真 windowed 路径无法在 GUT 内测（要真 GPU），靠 e2e 覆盖。
+
+func test_wait_first_frame_ready_returns_under_headless() -> void:
+	# 关键防回归：dummy 路径不能 await frame_post_draw（永不发射 → 死锁）。
+	# 用 process_frame 推两帧应在毫秒级返回，否则函数被误改成走 windowed 分支。
+	# 必须 add_child 进 tree，否则 await get_tree().process_frame 拿不到 tree。
+	if _bridge.is_inside_tree():
+		_bridge.get_parent().remove_child(_bridge)
+	add_child_autofree(_bridge)
+	var t0: int = Time.get_ticks_msec()
+	await _bridge._wait_first_frame_ready()
+	var elapsed_ms: int = Time.get_ticks_msec() - t0
+	# 2s 余量，正常应在 < 100ms 返回
+	assert_lt(elapsed_ms, 2000, "_wait_first_frame_ready 在 headless 下必须秒返不死锁")
+
+
+func test_first_frame_ready_max_frames_constant_is_positive() -> void:
+	# 防回归：常量被改成 0 或负数会让循环立刻退出 → 启动 gate 失效。
+	assert_gt(GameBridgeScript.FIRST_FRAME_READY_MAX_FRAMES, 0)
+
+
+# ── 注册表完整性：scene API（issue #98） ─────────────────────────────
+
+func test_registry_has_scene_methods() -> void:
+	assert_true(_bridge._methods.has("scene_reload"), "scene_reload 应已注册")
+	assert_eq(str(_bridge._methods["scene_reload"]["kind"]), "async")
+	assert_true(_bridge._methods.has("scene_change"), "scene_change 应已注册")
+	assert_eq(str(_bridge._methods["scene_change"]["kind"]), "async")
+
+
+# ── quit RPC（#156） ───────────────────────────────────────────────
+
+func test_quit_registered_responds_ok_and_invokes_quit_action() -> void:
+	# 退出动作替换成 spy，避免 get_tree().quit() 把测试进程带走
+	var quit_called := [false]
+	_bridge._quit_action = func() -> void: quit_called[0] = true
+	_send('{"id":"q1","method":"quit","params":{}}')
+	var f: Dictionary = _last_frame()
+	assert_eq(str(f.get("id", "MISSING")), "q1", "响应应回带请求 id")
+	assert_has(f, "result")
+	assert_true(bool(f.result.get("ok", false)), "quit 应回 {ok:true}")
+	assert_true(quit_called[0], "quit handler 应调用注入的退出动作")
+
+
+# ── 注册表完整性：time API（issue #102） ─────────────────────────────
+
+func test_registry_has_time_methods() -> void:
+	for m: String in ["time_scale", "pause", "unpause"]:
+		assert_true(_bridge._methods.has(m), "%s 应已注册" % m)
+		assert_eq(str(_bridge._methods[m]["kind"]), "sync")
+	assert_true(_bridge._methods.has("step_frames"), "step_frames 应已注册")
+	assert_eq(str(_bridge._methods["step_frames"]["kind"]), "async")
+
+
+func test_registry_has_sprite_info() -> void:
+	assert_true(_bridge._methods.has("sprite_info"), "sprite_info 应已注册（issue #101）")
+	assert_eq(str(_bridge._methods["sprite_info"]["kind"]), "sync")
+
+
+func test_registry_has_errors() -> void:
+	assert_true(_bridge._methods.has("errors"), "errors 应已注册（issue #103）")
+	assert_eq(str(_bridge._methods["errors"]["kind"]), "sync")
+
+
+# ── issue #172 item2 / item1：armed 帧 kind + wait_signal_start_timer 路由 ──
+
+func test_send_armed_frame_carries_kind_and_keeps_armed_field() -> void:
+	## #172 item2：armed 中间帧带正向 kind:"armed"（client 据此识别），同时保留
+	## armed:true 字段给旧 client 前向兼容。
+	_bridge._send_armed("SA1")
+	var frame: Dictionary = _last_frame()
+	assert_eq(str(frame.get("id", "")), "SA1", "帧回带 id")
+	assert_eq(str(frame.get("kind", "")), "armed", "armed 帧应带 kind:armed（#172 item2）")
+	assert_true(bool(frame.get("armed", false)), "保留 armed:true 给旧 client 前向兼容")
+
+
+func test_wait_signal_start_timer_registered_and_routes_to_wait_api() -> void:
+	## #172 item1：wait_signal_start_timer 注册为 sync，路由到 WaitApi.notify_start_timer
+	## （转发 params.req_id），回 {ok} ack 供 client fire-and-forget 忽略。
+	assert_true(_bridge._methods.has("wait_signal_start_timer"),
+		"wait_signal_start_timer 应已注册")
+	assert_eq(str(_bridge._methods["wait_signal_start_timer"]["kind"]), "sync")
+	_send('{"id":"ST1","method":"wait_signal_start_timer","params":{"req_id":"WAIT1"}}')
+	var frame: Dictionary = _last_frame()
+	assert_eq(str(frame.get("id", "")), "ST1", "ack 回带请求 id")
+	assert_has(frame, "result")
+	assert_true(bool(frame.result.get("ok", false)), "回 {ok:true} ack")
+	assert_eq(_wait.notify_start_timer_calls, ["WAIT1"],
+		"应把 params.req_id 转发给 WaitApi.notify_start_timer")
+
+
+# ── #160: _send_json 发送失败 fail-loud ──────────────────────────────
+
+func test_response_too_large_code_is_1016() -> void:
+	# 防回归：码值锁死 1016，三段制内不撞 1001-1015
+	assert_eq(CliControlErrorCodes.RESPONSE_TOO_LARGE, 1016)
+
+
+func test_oversize_fallback_skips_error_envelope() -> void:
+	# 递归守卫：失败的本就是 error 信封 → 不补发
+	var fb: Dictionary = _bridge._oversize_fallback_for(
+		{"id": "x", "error": {"code": 1001, "message": "n"}}
+	)
+	assert_true(fb.is_empty(), "error 信封发送失败不应补发（防递归）")
+
+
+func test_oversize_fallback_skips_empty_or_missing_id() -> void:
+	# fire-and-forget：client 不 await，补也没人收
+	var fb_empty: Dictionary = _bridge._oversize_fallback_for({"id": "", "result": {"big": "x"}})
+	assert_true(fb_empty.is_empty(), "空 id 响应不应补发")
+	var fb_missing: Dictionary = _bridge._oversize_fallback_for({"result": {"big": "x"}})
+	assert_true(fb_missing.is_empty(), "无 id 响应不应补发")
+
+
+func test_oversize_fallback_builds_1016_for_response() -> void:
+	var fb: Dictionary = _bridge._oversize_fallback_for({"id": "abc", "result": {"big": "x"}})
+	assert_false(fb.is_empty(), "带 id 的正常响应失败应补发")
+	assert_eq(str(fb.get("id")), "abc", "补发信封须沿用原 id")
+	assert_has(fb, "error")
+	assert_eq(int(fb.error.code), CliControlErrorCodes.RESPONSE_TOO_LARGE, "补发码须为 1016")
+	assert_string_contains(str(fb.error.message), "outbound buffer")
+
+
+func test_send_failure_emits_1016_fallback() -> void:
+	# 集成：带 id 的大响应首发失败 → 补发 1016 信封（共 2 次 transmit）。
+	# 注：本测试会触发真实失败路径的 push_error（GUT 输出留 ERROR 噪音，不判失败）。
+	var fb := FailingTransmitBridge.new()
+	autofree(fb)
+	fb._send_json({"id": "big1", "result": {"payload": "x"}})
+	assert_eq(fb.transmit_calls.size(), 2, "首发失败应触发补发（共 2 次 transmit）")
+	var parsed: Variant = JSON.parse_string(fb.transmit_calls[1])
+	assert_true(parsed is Dictionary, "补发帧应是合法 JSON 对象")
+	var frame: Dictionary = parsed
+	assert_eq(str(frame.get("id")), "big1", "补发信封须沿用原 id")
+	assert_eq(int((frame["error"] as Dictionary)["code"]), 1016)
+
+
+func test_send_failure_on_error_frame_does_not_refeed() -> void:
+	# 集成：失败的是 error 信封 → 不补发（只 1 次 transmit），杜绝递归。
+	var fb := FailingTransmitBridge.new()
+	autofree(fb)
+	fb._send_json({"id": "x", "error": {"code": 1001, "message": "n"}})
+	assert_eq(fb.transmit_calls.size(), 1, "error 信封失败不补发")
+
+
+func test_send_success_does_not_fallback() -> void:
+	# 集成：发送成功不补发（只 1 次 transmit）。
+	var fb := FailingTransmitBridge.new()
+	autofree(fb)
+	fb.fail_first = false
+	fb._send_json({"id": "ok1", "result": {"a": 1}})
+	assert_eq(fb.transmit_calls.size(), 1, "发送成功不应补发")
+
+
+func test_send_failure_fallback_also_fails_does_not_resend() -> void:
+	# 集成：原响应 + 补发都失败 → 只留痕、不再补发（恰 2 次 transmit，不递归到第 3 次）。
+	# 钉死 spec「防递归：error 响应（补发信封）自身发送失败时只留痕不再补发」。
+	# 注：触发两条真实失败路径 push_error/printerr（GUT 输出留 ERROR 噪音，不判失败）。
+	var fb := FailingTransmitBridge.new()
+	autofree(fb)
+	fb.fail_all = true
+	fb._send_json({"id": "big2", "result": {"payload": "x"}})
+	assert_eq(fb.transmit_calls.size(), 2, "原发 + 补发各一次失败，不应再有第 3 次 transmit")

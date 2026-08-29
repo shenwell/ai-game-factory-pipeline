@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-game-factory.local/schemas/game-factory.config.schema.json",
+  "title": "game-factory.config",
+  "type": "object",
+  "required": ["schema_version", "project", "toolchain", "pipeline", "gates", "production", "assets", "orchestration"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "type": "integer", "const": 1 },
+    "project": {
+      "type": "object",
+      "required": ["name", "display_name", "dimension", "logical_resolution"],
+      "properties": {
+        "name": { "type": "string" },
+        "display_name": { "type": "string" },
+        "dimension": { "enum": ["2d", "3d"] },
+        "logical_resolution": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+    "toolchain": {
+      "type": "object",
+      "required": ["godot", "dotnet", "python"],
+      "properties": {
+        "godot": { "type": "string" },
+        "dotnet": { "type": "string" },
+        "python": { "type": "string" }
+      }
+    },
+    "pipeline": {
+      "type": "object",
+      "required": ["retry_budget", "on_optional_asset_failure"],
+      "properties": {
+        "retry_budget": { "type": "integer", "minimum": 0 },
+        "on_optional_asset_failure": { "enum": ["procedural", "block"] }
+      }
+    },
+    "gates": {
+      "type": "object",
+      "required": ["fast", "full", "visual"],
+      "properties": {
+        "fast": { "type": "array", "items": { "type": "string" } },
+        "full": { "type": "array", "items": { "type": "string" } },
+        "visual": { "type": "array", "items": { "type": "string" } },
+        "wall_seconds_blocker": { "type": ["integer", "null"] }
+      }
+    },
+    "production": {
+      "type": "object",
+      "required": ["batch_weight_target", "max_xl_per_batch", "max_l_per_batch", "max_measurement_tasks", "max_parallel_writers"],
+      "properties": {
+        "batch_weight_target": {
+          "type": "array",
+          "items": { "type": "integer" },
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "max_xl_per_batch": { "type": "integer" },
+        "max_l_per_batch": { "type": "integer" },
+        "max_measurement_tasks": { "type": "integer" },
+        "max_parallel_writers": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "required": ["provider", "env_key", "output_dir", "fallback", "approval", "models"],
+      "properties": {
+        "provider": { "const": "kie" },
+        "env_key": { "type": "string" },
+        "output_dir": { "type": "string" },
+        "fallback": { "enum": ["procedural", "block"] },
+        "approval": {
+          "type": "object",
+          "required": ["mode", "max_credits", "max_jobs"],
+          "properties": {
+            "mode": { "enum": ["design_gate", "per_job"] },
+            "max_credits": { "type": "number" },
+            "max_jobs": { "type": "integer" }
+          }
+        },
+        "models": {
+          "type": "object",
+          "required": ["text_to_image", "image_to_image", "reference", "image_to_video"],
+          "properties": {
+            "text_to_image": { "type": "string" },
+            "image_to_image": { "type": "string" },
+            "reference": { "type": "string" },
+            "image_to_video": { "type": "string" }
+          }
+        }
+      }
+    },
+    "orchestration": {
+      "type": "object",
+      "required": ["adapter"],
+      "properties": {
+        "adapter": { "enum": ["cursor", "orca"] }
+      }
+    }
+  }
+}

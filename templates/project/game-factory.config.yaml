@@ -1,0 +1,47 @@
+schema_version: 1
+
+project:
+  name: ""
+  display_name: ""
+  dimension: 2d
+  logical_resolution: [1280, 720]
+
+toolchain:
+  godot: ">=4.7.2,<4.8"
+  dotnet: ">=9,<10"
+  python: ">=3.11"
+
+pipeline:
+  retry_budget: 3
+  on_optional_asset_failure: procedural
+
+gates:
+  fast: [config, drift, build, unit]
+  full: [fast, scene_build, import, launch, gameplay, errors]
+  visual: [full, screenshots, proof_video]
+  wall_seconds_blocker: null
+
+production:
+  batch_weight_target: [15, 20]
+  max_xl_per_batch: 1
+  max_l_per_batch: 2
+  max_measurement_tasks: 2
+  max_parallel_writers: 1
+
+assets:
+  provider: kie
+  env_key: KIE_API_KEY
+  output_dir: assets
+  fallback: procedural
+  approval:
+    mode: design_gate
+    max_credits: 0
+    max_jobs: 0
+  models:
+    text_to_image: grok-imagine/text-to-image
+    image_to_image: grok-imagine/image-to-image
+    reference: nano-banana-pro
+    image_to_video: grok-imagine/image-to-video
+
+orchestration:
+  adapter: cursor

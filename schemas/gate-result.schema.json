@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ai-game-factory.local/schemas/gate-result.schema.json",
+  "title": "gate result",
+  "type": "object",
+  "required": ["profile", "ok", "started_at", "finished_at", "duration_sec", "steps"],
+  "properties": {
+    "profile": { "enum": ["fast", "full", "visual"] },
+    "ok": { "type": "boolean" },
+    "started_at": { "type": "string" },
+    "finished_at": { "type": "string" },
+    "duration_sec": { "type": "number" },
+    "commit": { "type": ["string", "null"] },
+    "steps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "ok", "exit_code"],
+        "properties": {
+          "name": { "type": "string" },
+          "ok": { "type": "boolean" },
+          "exit_code": { "type": "integer" },
+          "evidence": { "type": "array", "items": { "type": "string" } },
+          "error_category": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+---
+description: game-factory pipeline rules for Godot projects
+globs:
+  - "**/*"
+alwaysApply: true
+---
+
+Read `game-factory.config.yaml` for all project settings. Use `/game-factory-*` commands and `factory` CLI. Assets via Kie.ai only (`KIE_API_KEY`). See `AGENTS.md`.
