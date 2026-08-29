@@ -1,9 +1,8 @@
-# Kie-only patch notes for vendor/godogen/asset-gen/SKILL.md
+# Vendor patches
 
-After sync, apply manually or via future patch script:
+Applied by `python scripts/vendor/sync-upstream.py` after copy:
 
-- Remove mcp-kv, Gemini, xAI, Tripo3D sections
-- Keep Kie video recipe and tools paths
-- Point env to project `.env` only
+- `asset-gen-SKILL-kie-only.md` → `vendor/godogen/asset-gen/SKILL.md`
+- `kie_video.py` drive-letter defaults → project `.env` / `GODOGEN_ROOT` (see `_patch_kie_video_env_paths`)
 
 Init publishes skill to `.agents/skills/asset-gen/` — verify no `mcp-kv` in published copy.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1
+
+- Paths in docs, vendor sync, gate evidence, and CLI output are project-relative. Local vendor sources default to sibling directories (`../godogen`, `../Second Games`) or `GODOGEN_ROOT` / `GODOT_CLI_CONTROL_ROOT`.
+
 ## 1.1.0
 
 - `install/init.py --upgrade` — migrations from 1.0.0 (config schema v2, ASSETS-3D.md, asset catalog).

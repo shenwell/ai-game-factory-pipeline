@@ -10,8 +10,14 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-FACTORY_VERSION = "1.1.0"
+FACTORY_VERSION = "1.1.1"
 FORBIDDEN_IN_TARGET = {".git"}
+
+
+def _result_payload(target: Path, mode: str, **extra) -> dict:
+    payload = {"ok": True, "path": Path(target).as_posix(), "factory_version": FACTORY_VERSION, "mode": mode}
+    payload.update(extra)
+    return payload
 
 
 def _is_empty_dir(path: Path) -> bool:
@@ -180,20 +186,22 @@ def init_project(factory_root: Path, target: Path) -> None:
                 dest.unlink()
         shutil.move(str(child), str(dest))
     shutil.rmtree(staging)
-    print(json.dumps({"ok": True, "path": str(target), "factory_version": FACTORY_VERSION, "mode": "fresh"}))
+    print(json.dumps(_result_payload(target, "fresh")))
 
 
 def init_into_existing(factory_root: Path, target: Path) -> None:
+    requested = target
     target = target.resolve()
     if not _is_godot_project(target):
         raise SystemExit(f"Refusing --into-existing: no project.godot in {target}")
     if _is_factory_project(target):
         raise SystemExit(f"Already a factory project; use --upgrade instead: {target}")
     _overlay_factory(factory_root, target, skip_existing_docs=True)
-    print(json.dumps({"ok": True, "path": str(target), "factory_version": FACTORY_VERSION, "mode": "into-existing"}))
+    print(json.dumps(_result_payload(requested, "into-existing")))
 
 
 def upgrade_project(factory_root: Path, target: Path) -> None:
+    requested = target
     target = target.resolve()
     if not _is_factory_project(target):
         raise SystemExit(f"Not a factory project (missing install-manifest): {target}")
@@ -210,7 +218,7 @@ def upgrade_project(factory_root: Path, target: Path) -> None:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     manifest["factory_version"] = FACTORY_VERSION
     manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-    print(json.dumps({"ok": True, "path": str(target), "factory_version": FACTORY_VERSION, "mode": "upgrade", "migration": mig}))
+    print(json.dumps(_result_payload(requested, "upgrade", migration=mig)))
 
 
 def main() -> int:

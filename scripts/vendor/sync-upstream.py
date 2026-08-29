@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 import shutil
 import subprocess
 import sys
@@ -13,10 +15,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 VENDOR = ROOT / "vendor"
 
+
+def _local_source(env_key: str, *relative_to_parent: str) -> Path:
+    """Sibling of this repo, or an env override. Never a hardcoded drive path."""
+    override = os.environ.get(env_key)
+    if override:
+        return Path(override)
+    return ROOT.parent.joinpath(*relative_to_parent)
+
+
 SOURCES = {
     "godogen": {
         "type": "local",
-        "path": Path(r"D:\GAMES Creator\godogen"),
+        "path": _local_source("GODOGEN_ROOT", "godogen"),
         "copy": [
             ("engines/godot.md", "godogen/engines/godot.md"),
             ("prompts/runtime.md", "godogen/prompts/runtime.md"),
@@ -36,7 +47,7 @@ SOURCES = {
     },
     "godot_cli_control": {
         "type": "local",
-        "path": Path(r"D:\GAMES Creator\Second Games"),
+        "path": _local_source("GODOT_CLI_CONTROL_ROOT", "Second Games"),
         "copy": [
             ("addons/godot_cli_control", "godot_cli_control/addon"),
             (".cursor/skills/godot-cli-control", "godot_cli_control/skill"),
@@ -82,6 +93,12 @@ def sync_git_sparse(name: str, url: str, sparse: str, dest: str) -> str:
 
 
 def sync_local(name: str, base: Path, copies: list[tuple[str, str]]) -> str:
+    if not base.exists():
+        env_hint = "GODOGEN_ROOT" if name == "godogen" else "GODOT_CLI_CONTROL_ROOT"
+        raise FileNotFoundError(
+            f"Local vendor source {name!r} not found at {base}. "
+            f"Place it next to this repo or set {env_hint}."
+        )
     stamp = "local"
     if (base / ".git").exists():
         try:
@@ -104,6 +121,34 @@ def sync_local(name: str, base: Path, copies: list[tuple[str, str]]) -> str:
     return stamp
 
 
+def _patch_kie_video_env_paths(text: str) -> str:
+    text = re.sub(
+        r"`\.env` \(canonical: [^)]+\)\.",
+        "`.env` (project root, `GODOGEN_ROOT`, or the current working directory).",
+        text,
+        count=1,
+    )
+    text = re.sub(
+        r'GODOGEN_ROOT = Path\(os\.environ\.get\("GODOGEN_ROOT", r?"[^"]+"\)\)',
+        'GODOGEN_ROOT = Path(os.environ["GODOGEN_ROOT"]) if os.environ.get("GODOGEN_ROOT") else Path.cwd()',
+        text,
+        count=1,
+    )
+    text = re.sub(
+        r"KIE_API_KEY is not set\. Put it in [^\n]+",
+        "KIE_API_KEY is not set. Put it in the project `.env` (gitignored) or export KIE_API_KEY. Create the key at https://kie.ai/api-key",
+        text,
+        count=1,
+    )
+    text = re.sub(
+        r"\n        if parent\.name\.lower\(\) in \{[^}]+\}:\n            break\n",
+        "\n",
+        text,
+        count=1,
+    )
+    return text
+
+
 def apply_patches() -> None:
     patches = VENDOR / "patches"
     kie_skill = patches / "asset-gen-SKILL-kie-only.md"
@@ -111,6 +156,12 @@ def apply_patches() -> None:
         dst = VENDOR / "godogen" / "asset-gen" / "SKILL.md"
         if (VENDOR / "godogen" / "asset-gen").exists():
             shutil.copy2(kie_skill, dst)
+    kie_video = VENDOR / "godogen" / "asset-gen" / "tools" / "kie_video.py"
+    if kie_video.exists():
+        original = kie_video.read_text(encoding="utf-8")
+        patched = _patch_kie_video_env_paths(original)
+        if patched != original:
+            kie_video.write_text(patched, encoding="utf-8")
 
 
 def main() -> int:

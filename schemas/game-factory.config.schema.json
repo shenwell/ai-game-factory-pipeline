@@ -63,7 +63,10 @@
         "max_l_per_batch": { "type": "integer" },
         "max_measurement_tasks": { "type": "integer" },
         "max_parallel_writers": { "type": "integer", "minimum": 1 },
-        "worktree_dir": { "type": "string" }
+        "worktree_dir": {
+          "type": "string",
+          "description": "Project-relative directory for writer git worktrees"
+        }
       }
     },
     "assets": {
@@ -72,7 +75,7 @@
       "properties": {
         "provider": { "const": "kie" },
         "env_key": { "type": "string" },
-        "output_dir": { "type": "string" },
+        "output_dir": { "type": "string", "description": "Project-relative asset output directory" },
         "fallback": { "enum": ["procedural", "block"] },
         "approval": {
           "type": "object",
@@ -98,14 +101,14 @@
           "properties": {
             "enabled": { "type": "boolean" },
             "allow_licenses": { "type": "array", "items": { "type": "string" } },
-            "catalog": { "type": "string" },
+            "catalog": { "type": "string", "description": "Project-relative path to the open-source catalog JSON" },
             "require_checksum": { "type": "boolean" }
           }
         },
         "models_3d": {
           "type": "object",
           "properties": {
-            "user_glb_dir": { "type": "string" },
+            "user_glb_dir": { "type": "string", "description": "Project-relative directory for user GLB files" },
             "allow_procedural": { "type": "boolean" }
           }
         }

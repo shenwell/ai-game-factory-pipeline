@@ -12,14 +12,11 @@ from game_factory.state import load_state
 from game_factory.adapters.orca import client as orca_client
 from game_factory.assets.providers import opensource as oss_assets
 from game_factory.migrations.runner import run_migrations
+from game_factory.paths import join_project, relpath
 from game_factory.production import worktrees
 from game_factory.production.producer import close_batch, plan_batch, production_status
 from game_factory.production.verifier import independent_verify
 from game_factory.transitions import transition
-
-
-def _repo_root() -> Path:
-    return Path.cwd()
 
 
 def cmd_status(args: argparse.Namespace) -> int:
@@ -79,7 +76,7 @@ def cmd_orca_dispatch(args: argparse.Namespace) -> int:
     root = Path(args.project).resolve()
     cfg = load_config(root)
     pid = cfg.get("orchestration", {}).get("orca_project_id")
-    out = orca_client.dispatch(root, Path(args.work_order), orca_project_id=pid)
+    out = orca_client.dispatch(root, join_project(root, args.work_order), orca_project_id=pid)
     print(json.dumps(out, indent=2))
     return 0
 
@@ -105,7 +102,7 @@ def cmd_orca_cancel(args: argparse.Namespace) -> int:
 def cmd_worktree_add(args: argparse.Namespace) -> int:
     root = Path(args.project).resolve()
     path = worktrees.create_writer_worktree(root, args.zone, args.writer)
-    print(json.dumps({"worktree": str(path)}, indent=2))
+    print(json.dumps({"worktree": relpath(root, path)}, indent=2))
     return 0
 
 

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from game_factory.config import load_config
+from game_factory.paths import relpath, under_root
 
 STEP_RUNNERS = {
     "config": "_step_config",
@@ -74,9 +75,9 @@ def _step_scene_build(project_root: Path) -> dict[str, Any]:
     if not scenes:
         return {"name": "scene_build", "ok": True, "exit_code": 0, "evidence": ["no builders"]}
     for builder in scenes:
-        code, _ = _run(["godot", "--headless", "--script", str(builder.relative_to(project_root))], project_root)
+        code, _ = _run(["godot", "--headless", "--script", relpath(project_root, builder)], project_root)
         if code != 0:
-            return {"name": "scene_build", "ok": False, "exit_code": code, "evidence": [str(builder)]}
+            return {"name": "scene_build", "ok": False, "exit_code": code, "evidence": [relpath(project_root, builder)]}
     return {"name": "scene_build", "ok": True, "exit_code": 0}
 
 
@@ -105,7 +106,7 @@ def _step_errors(project_root: Path) -> dict[str, Any]:
 def _step_screenshots(project_root: Path) -> dict[str, Any]:
     shots = project_root / "screenshots" / "qa.png"
     ok = shots.exists() and shots.stat().st_size > 0
-    return {"name": "screenshots", "ok": ok, "exit_code": 0 if ok else 1, "evidence": [str(shots)]}
+    return {"name": "screenshots", "ok": ok, "exit_code": 0 if ok else 1, "evidence": [relpath(project_root, shots)]}
 
 
 def _step_proof_video(project_root: Path) -> dict[str, Any]:
@@ -123,15 +124,15 @@ def _step_glb_import(project_root: Path) -> dict[str, Any]:
         return {"name": "glb_import", "ok": True, "exit_code": 0, "evidence": ["no config"]}
     if cfg.get("project", {}).get("dimension") != "3d":
         return {"name": "glb_import", "ok": True, "exit_code": 0, "evidence": ["2d project"]}
-    glb_dir = Path(cfg.get("assets", {}).get("models_3d", {}).get("user_glb_dir", "assets/models"))
-    root = project_root / glb_dir
+    glb_rel = cfg.get("assets", {}).get("models_3d", {}).get("user_glb_dir", "assets/models")
+    root = under_root(project_root, glb_rel, name="assets.models_3d.user_glb_dir")
     glbs = list(root.glob("**/*.glb")) if root.exists() else []
     ok = len(glbs) > 0 or cfg.get("assets", {}).get("models_3d", {}).get("allow_procedural", True)
     return {
         "name": "glb_import",
         "ok": ok,
         "exit_code": 0 if ok else 1,
-        "evidence": [str(p) for p in glbs[:5]],
+        "evidence": [relpath(project_root, p) for p in glbs[:5]],
     }
 
 

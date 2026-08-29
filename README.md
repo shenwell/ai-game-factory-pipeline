@@ -5,8 +5,8 @@ Godot 4 .NET/C# **game project factory** — not a game. Installs into an **empt
 ## v1.1
 
 ```powershell
-python install/init.py --out "D:\Games\my-godot-game" --into-existing
-python install/init.py --out "D:\Games\my-game" --upgrade
+python install/init.py --out ../my-godot-game --into-existing
+python install/init.py --out ../my-game --upgrade
 game-factory migrate
 game-factory orca dispatch --work-order .game-factory/jobs/wo-ui-2.json
 game-factory assets search platformer --license CC0
@@ -18,11 +18,11 @@ See `CHANGELOG.md`.
 ## Quick start
 
 ```powershell
-cd "D:\GAMES Creator\ai-game-factory"
+cd path/to/ai-game-factory
 pip install -e ".[dev]"
 python scripts/vendor/sync-upstream.py
-python install/init.py --out "D:\Games\my-new-game"
-cd "D:\Games\my-new-game"
+python install/init.py --out ../my-new-game
+cd ../my-new-game
 game-factory status
 ```
 
@@ -57,6 +57,8 @@ game-factory verify-release
 Kie.ai REST only. Set `KIE_API_KEY` in `.env`. See `docs/KIE-ASSETS.md`.
 
 ## Vendor sync
+
+Local checkouts default to **sibling directories** of this repo (`../godogen`, `../Second Games`). Override with `GODOGEN_ROOT` and `GODOT_CLI_CONTROL_ROOT`.
 
 ```powershell
 python scripts/vendor/sync-upstream.py

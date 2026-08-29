@@ -13,6 +13,7 @@ This repository is the **factory** (Python CLI, templates, vendor sync), not a G
 
 - **Borrow-first:** do not rewrite `vendor/` prose; sync via `python scripts/vendor/sync-upstream.py`; patches only in `vendor/patches/`.
 - **Tests:** `pip install -e ".[dev]"` then `pytest tests/` from repo root (use `.venv` on Windows).
+- **Paths:** config, docs, and CLI JSON use project-relative paths. Do not hardcode machine drive roots.
 - **Init contract:** fresh install = empty dir only; v1.1 adds `--upgrade` and `--into-existing` (Godot overlay).
 - **Pipeline state** for *installed games* lives in `.game-factory/state.json` — that is machine state, not agent memory. Do not store factory dev notes there.
 - **No game names** in templates, tests, or factory docs.

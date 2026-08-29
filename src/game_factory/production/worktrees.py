@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from game_factory.config import load_config
+from game_factory.paths import relpath, under_root
 
 
 def leases_path(project_root: Path) -> Path:
@@ -29,7 +30,7 @@ def save_leases(project_root: Path, data: dict[str, Any]) -> None:
 def worktree_root(project_root: Path) -> Path:
     cfg = load_config(project_root)
     rel = cfg.get("production", {}).get("worktree_dir", ".worktrees")
-    return project_root / rel
+    return under_root(project_root, rel, name="production.worktree_dir")
 
 
 def acquire_zone_lease(project_root: Path, zone: str, writer_id: str) -> dict[str, Any]:
@@ -67,7 +68,7 @@ def create_writer_worktree(project_root: Path, zone: str, writer_id: str) -> Pat
     if wt_path.exists():
         return wt_path
     subprocess.run(
-        ["git", "worktree", "add", "-B", branch, str(wt_path), "HEAD"],
+        ["git", "worktree", "add", "-B", branch, relpath(project_root, wt_path), "HEAD"],
         cwd=project_root,
         check=True,
         capture_output=True,
@@ -79,5 +80,9 @@ def create_writer_worktree(project_root: Path, zone: str, writer_id: str) -> Pat
 def remove_writer_worktree(project_root: Path, zone: str, writer_id: str) -> None:
     wt_path = worktree_root(project_root) / f"{zone}-{writer_id}"
     if wt_path.exists():
-        subprocess.run(["git", "worktree", "remove", "--force", str(wt_path)], cwd=project_root, check=False)
+        subprocess.run(
+            ["git", "worktree", "remove", "--force", relpath(project_root, wt_path)],
+            cwd=project_root,
+            check=False,
+        )
     release_zone_lease(project_root, zone)

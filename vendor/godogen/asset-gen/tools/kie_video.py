@@ -1,7 +1,7 @@
 """Kie.ai video wrapper (Grok Imagine I2V / T2V).
 
 Independent of mcp-kv. Auth: KIE_API_KEY from the environment or a gitignored
-`.env` (canonical: D:\\GAMES Creator\\godogen\\.env).
+`.env` (project root, `GODOGEN_ROOT`, or the current working directory).
 
 Docs:
   https://docs.kie.ai/market/grok-imagine/image-to-video
@@ -39,7 +39,7 @@ MAX_IMAGE_BYTES = 10 * 1024 * 1024
 POLL_TIMEOUT_S = 15 * 60
 UPLOAD_PATH = "images/godogen"
 
-GODOGEN_ROOT = Path(os.environ.get("GODOGEN_ROOT", r"D:\GAMES Creator\godogen"))
+GODOGEN_ROOT = Path(os.environ["GODOGEN_ROOT"]) if os.environ.get("GODOGEN_ROOT") else Path.cwd()
 
 _IMAGE_MIME = {
     ".jpg": "image/jpeg",
@@ -97,8 +97,6 @@ def _candidate_env_files() -> list[Path]:
     here = Path.cwd()
     for parent in [here, *here.parents]:
         candidates.append(parent / ".env")
-        if parent.name.lower() in {"second games", "godogen"}:
-            break
     for item in candidates:
         if item is None:
             continue
@@ -123,8 +121,8 @@ def load_kie_api_key() -> str:
             os.environ["KIE_API_KEY"] = value
             return value
     raise KieError(
-        "KIE_API_KEY is not set. Put it in D:\\GAMES Creator\\godogen\\.env "
-        "(gitignored) or export KIE_API_KEY. Create the key at https://kie.ai/api-key"
+        "KIE_API_KEY is not set. Put it in the project `.env` (gitignored) or export "
+        "KIE_API_KEY. Create the key at https://kie.ai/api-key"
     )
 
 

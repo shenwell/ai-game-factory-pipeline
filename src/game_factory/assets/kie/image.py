@@ -50,7 +50,7 @@ def generate_text_to_image(
     _download(url, output)
     intent["status"] = "complete"
     write_sidecar(sidecar_path(output), intent)
-    return {"ok": True, "path": str(output), "task_id": task_id}
+    return {"ok": True, "path": output.as_posix(), "task_id": task_id}
 
 
 def generate_image_to_image(
@@ -67,7 +67,7 @@ def generate_image_to_image(
         "kind": "i2i",
         "model": model,
         "prompt": prompt,
-        "source": str(image_path),
+        "source": image_path.as_posix(),
         "aspect_ratio": aspect_ratio,
         "status": "pending",
     }
@@ -95,7 +95,7 @@ def generate_image_to_image(
     _download(url, output)
     intent["status"] = "complete"
     write_sidecar(sidecar_path(output), intent)
-    return {"ok": True, "path": str(output), "task_id": task_id}
+    return {"ok": True, "path": output.as_posix(), "task_id": task_id}
 
 
 def _extract_image_url(result: dict[str, Any]) -> str:
