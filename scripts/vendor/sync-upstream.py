@@ -7,6 +7,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 from datetime import datetime, timezone
@@ -14,6 +15,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 VENDOR = ROOT / "vendor"
+
+
+def _rmtree_force(path: Path) -> None:
+    if not path.exists():
+        return
+
+    def _onexc(func, p, _exc_info):
+        os.chmod(p, stat.S_IWRITE)
+        func(p)
+
+    shutil.rmtree(path, onexc=_onexc)
 
 
 def _local_source(env_key: str, *relative_to_parent: str) -> Path:
@@ -45,6 +57,15 @@ SOURCES = {
         "sparse": "skills/productivity/game-design",
         "dest": "game-design",
     },
+    "gamedev-ui": {
+        "type": "git_sparse_multi",
+        "url": "https://github.com/gamedev-skills/awesome-gamedev-agent-skills.git",
+        "mappings": [
+            ("skills/disciplines/game-ui-ux", "game-ui-ux"),
+            ("skills/godot/godot-ui-control", "godot-ui-control"),
+            ("skills/disciplines/input-systems", "input-systems"),
+        ],
+    },
     "godot_cli_control": {
         "type": "local",
         "path": _local_source("GODOT_CLI_CONTROL_ROOT", "Second Games"),
@@ -65,11 +86,11 @@ def sync_git(name: str, url: str, dest: str) -> str:
     target = VENDOR / dest
     tmp = VENDOR / f".sync-{dest}"
     if tmp.exists():
-        shutil.rmtree(tmp)
+        _rmtree_force(tmp)
     _run_git(["clone", "--depth", "1", url, str(tmp)], VENDOR)
     commit = _run_git(["rev-parse", "HEAD"], tmp)
     if target.exists():
-        shutil.rmtree(target)
+        _rmtree_force(target)
     shutil.move(str(tmp / ".git"), str(VENDOR / f".git-{dest}-discard"))
     shutil.rmtree(VENDOR / f".git-{dest}-discard", ignore_errors=True)
     shutil.move(str(tmp), str(target))
@@ -79,16 +100,36 @@ def sync_git(name: str, url: str, dest: str) -> str:
 def sync_git_sparse(name: str, url: str, sparse: str, dest: str) -> str:
     tmp = VENDOR / f".sync-{dest}"
     if tmp.exists():
-        shutil.rmtree(tmp)
+        _rmtree_force(tmp)
     _run_git(["clone", "--depth", "1", "--filter=blob:none", "--sparse", url, str(tmp)], VENDOR)
     _run_git(["sparse-checkout", "set", sparse], tmp)
     commit = _run_git(["rev-parse", "HEAD"], tmp)
     src = tmp / sparse
     target = VENDOR / dest
     if target.exists():
-        shutil.rmtree(target)
+        _rmtree_force(target)
     shutil.copytree(src, target)
-    shutil.rmtree(tmp)
+    _rmtree_force(tmp)
+    return commit
+
+
+def sync_git_sparse_multi(name: str, url: str, mappings: list[tuple[str, str]]) -> str:
+    tmp = VENDOR / f".sync-{name}"
+    if tmp.exists():
+        _rmtree_force(tmp)
+    _run_git(["clone", "--depth", "1", "--filter=blob:none", "--sparse", url, str(tmp)], VENDOR)
+    sparse_paths = [m[0] for m in mappings]
+    _run_git(["sparse-checkout", "set", *sparse_paths], tmp)
+    commit = _run_git(["rev-parse", "HEAD"], tmp)
+    for sparse, dest in mappings:
+        src = tmp / sparse
+        target = VENDOR / dest
+        if not src.exists():
+            raise FileNotFoundError(f"Sparse path missing in {name}: {sparse}")
+        if target.exists():
+            _rmtree_force(target)
+        shutil.copytree(src, target)
+    _rmtree_force(tmp)
     return commit
 
 
@@ -172,6 +213,10 @@ def main() -> int:
         elif spec["type"] == "git_sparse":
             lock["sources"][name] = {
                 "commit": sync_git_sparse(name, spec["url"], spec["sparse"], spec["dest"])
+            }
+        elif spec["type"] == "git_sparse_multi":
+            lock["sources"][name] = {
+                "commit": sync_git_sparse_multi(name, spec["url"], spec["mappings"])
             }
         elif spec["type"] == "local":
             lock["sources"][name] = {"commit": sync_local(name, spec["path"], spec["copy"])}

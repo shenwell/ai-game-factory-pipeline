@@ -24,6 +24,7 @@ REQUIRED_FILES = (
     "docs/ONBOARDING.md",
     "docs/GDD.md",
     "docs/design/LOOPS.md",
+    "docs/design/UI.md",
     "docs/MVP_DONE.md",
     ".game-factory/state.json",
     ".game-factory/install-manifest.json",

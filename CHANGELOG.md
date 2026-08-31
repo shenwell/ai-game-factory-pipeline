@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Agent rule: do not copy another project’s implementation unless the user names the source and what to take (`AGENTS.md`, installed-game template).
+
+## 1.1.3
+
+- UI pipeline: `docs/design/UI.md` owner contract, MVP defer / v1 shell checklist in `MVP_DONE.md` and `DONE.md`.
+- Skills: `game-factory-ui` plus vendored `game-ui-ux`, `godot-ui-control`, `input-systems` (Apache-2.0, sync via `scripts/vendor/sync-upstream.py`).
+- Gate `ui_contract` on `verify full` / `visual`; config `ui.shell: deferred_mvp`.
+- Migration `1.1.x` → `1.1.3` copies UI docs and command on `init --upgrade`.
+
 ## 1.1.2
 
 - After init, run onboarding checks (`game-factory onboard`): required files, config, Python, Godot/.NET, `KIE_API_KEY`. Init JSON includes `onboard`; humans read `docs/ONBOARDING.md`.

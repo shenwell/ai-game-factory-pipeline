@@ -36,6 +36,14 @@ def test_no_disallowed_providers_in_config_template():
         assert bad not in text
 
 
+def test_no_silent_borrow_rule_in_agents():
+    needle = "unless the user names"
+    root = (REPO / "AGENTS.md").read_text(encoding="utf-8")
+    game = (TEMPLATES / "project" / "AGENTS.md").read_text(encoding="utf-8")
+    assert needle in root
+    assert needle in game
+
+
 def test_templates_no_game_names():
     forbidden = ["square collector", "ashen crown", "pilot"]
     for path in TEMPLATES.rglob("*"):
@@ -57,3 +65,34 @@ def test_state_schema_default():
         "retry_counts": {},
     }
     jsonschema.validate(state, schema)
+
+
+def test_ui_md_template_exists():
+    ui = TEMPLATES / "project" / "docs" / "design" / "UI.md"
+    assert ui.is_file()
+    text = ui.read_text(encoding="utf-8")
+    assert "## Screen inventory" in text
+    assert "## Deferred waiver" in text
+
+
+def test_mvp_skill_references_ui_contract():
+    skill = (TEMPLATES / "skills" / "game-factory-mvp" / "SKILL.md").read_text(encoding="utf-8").lower()
+    assert "docs/design/ui.md" in skill
+
+
+def test_produce_skill_references_ui_shell():
+    skill = (TEMPLATES / "skills" / "game-factory-produce" / "SKILL.md").read_text(encoding="utf-8").lower()
+    assert "docs/design/ui.md" in skill
+    assert "game-factory-ui" in skill
+
+
+def test_vendored_ui_skills_present():
+    for name in ("game-ui-ux", "godot-ui-control", "input-systems"):
+        skill = VENDOR / name / "SKILL.md"
+        assert skill.is_file(), f"missing vendor/{name}/SKILL.md — run scripts/vendor/sync-upstream.py"
+
+
+def test_config_includes_ui_contract_gate():
+    data = yaml.safe_load((TEMPLATES / "project" / "game-factory.config.yaml").read_text(encoding="utf-8"))
+    assert "ui_contract" in data["gates"]["full"]
+    assert data.get("ui", {}).get("shell") == "deferred_mvp"

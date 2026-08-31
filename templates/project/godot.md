@@ -49,6 +49,25 @@ Most Godot behavior the model already knows; these few fail with no error:
 - **C# enum names:** training data is GDScript-biased, so guessed C# enum names are often wrong (`BGMode.Sky`, not `BGModeEnum.Sky`). Verify against the installed Godot — read the C# API in the Godot docs/assemblies rather than guessing.
 - Frame-rate-independent damping: `speed *= Mathf.Exp(-rate * delta)`, not `speed *= (1 - drag)` per tick.
 
+## UI shell (production)
+
+Contract owner: `docs/design/UI.md`. MVP may boot straight into gameplay; lifecycle menus ship in **production**.
+
+Layout conventions:
+
+```text
+scenes/ui/           # CanvasLayer screens (title, pause, settings, HUD root)
+scenes/ui/modal/     # shared confirm/inform modal shell
+ui/theme/game.tres   # single Theme for all Control UI
+scripts/ui/          # ScreenStack, UiEvents (signals only — no gameplay rules)
+```
+
+- Build UI under `CanvasLayer` / `Control`, not `Node2D` sprites.
+- HUD updates via **signals/events**, not `_Process` polling of gameplay state.
+- Screen flow: **stack** (push/pop), not `isPaused` / `inSettings` flags.
+- Stretch: match `game-factory.config.yaml` → `project.logical_resolution`; see skill `game-ui-ux`.
+- Studio UI zone: copy `.game-factory/studio/zones.conf.example` → `.studio/zones.conf` when using gamestudio production.
+
 ## Capture (proof video)
 
 Hardware **Vulkan** gives correct rendering and is required for video; software Vulkan (`llvmpipe`/`lavapipe`) can still do stills but skip video and report it.

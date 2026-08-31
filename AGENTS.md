@@ -17,6 +17,7 @@ This repository is the **factory** (Python CLI, templates, vendor sync), not a G
 - **Init contract:** fresh install = empty dir only; v1.1 adds `--upgrade` and `--into-existing` (Godot overlay).
 - **Pipeline state** for *installed games* lives in `.game-factory/state.json` — that is machine state, not agent memory. Do not store factory dev notes there.
 - **No game names** in templates, tests, or factory docs.
+- **No silent borrow:** do not copy implementation, design, assets, or settings from another project (sibling folders, other games, other repos) unless the user names **which project** and **what** to take. Allowed reuse: this repo’s `templates/` and `vendor/` (via sync/patches).
 - **Commits / push** — only when the user explicitly asks.
 
 ## CLI (this repo)

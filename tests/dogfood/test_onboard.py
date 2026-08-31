@@ -27,6 +27,7 @@ def test_onboard_after_fresh_init(tmp_path: Path, capsys):
     assert payload["onboard"]["ready_for_design"] is True
     assert payload["onboard"]["phase"] == "bootstrap"
     assert (target / "docs" / "ONBOARDING.md").is_file()
+    assert (target / "docs" / "design" / "UI.md").is_file()
     assert (target / ".agents" / "skills" / "game-factory-onboard" / "SKILL.md").is_file()
     names = {c["name"] for c in payload["onboard"]["checks"]}
     assert "config" in names

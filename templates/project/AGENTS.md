@@ -7,6 +7,7 @@
 | Vision, scope, pillars | `GAME.md` |
 | Mechanics, systems | `docs/GDD.md` |
 | Loop numbers, project-specific loops | `docs/design/LOOPS.md` |
+| Screens, HUD, popups, navigation | `docs/design/UI.md` |
 | MVP / v1 acceptance | `docs/MVP_DONE.md`, `docs/DONE.md` |
 | User settings, gates, assets policy | `game-factory.config.yaml` |
 | Pipeline phase (machine) | `.game-factory/state.json` |
@@ -48,10 +49,12 @@ Read order: `MEMORY.md` → `memory/hot-cache.md` → as needed warm / open-loop
 - **Settings:** read `game-factory.config.yaml` only — do not duplicate numbers elsewhere.
 - **State:** read `.game-factory/state.json` before each `/game-factory-*` command; resume, do not restart phases.
 - **Design loops:** use `.agents/skills/game-design/` for theory; project numbers live in `docs/design/LOOPS.md`.
+- **UI shell:** owner `docs/design/UI.md`; MVP defers menus — implement shell in production. Skills `game-factory-ui`, `game-ui-ux`, `godot-ui-control`.
 - **Studio rules:** `.game-factory/vendor/gamestudio/STUDIO.md` during production phase.
 - **Engine:** read `godot.md` for Godot 4 .NET / C# traps and capture.
 - **Assets:** Kie.ai REST only — skill `asset-gen`; key `KIE_API_KEY` in `.env`. No mcp-kv.
 - **Proof:** judge from running game via `godot-cli-control` GUI screenshots, not headless alone.
+- **No silent borrow:** do not copy code, scenes, assets, GDD, or config from another game or sibling repo unless the user names that project and exactly what to take. Implement from this repo’s canon (`GAME.md`, `docs/`, `game-factory.config.yaml`) and factory templates/skills.
 
 ## Delivery
 

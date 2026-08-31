@@ -1,0 +1,14 @@
+# Third-party vendored content
+
+| Path | Upstream | License |
+|------|----------|---------|
+| `vendor/game-design/` | [saschb2b/skills](https://github.com/saschb2b/skills) | see upstream |
+| `vendor/game-ui-ux/` | [gamedev-skills/awesome-gamedev-agent-skills](https://github.com/gamedev-skills/awesome-gamedev-agent-skills) | Apache-2.0 |
+| `vendor/godot-ui-control/` | same | Apache-2.0 |
+| `vendor/input-systems/` | same | Apache-2.0 |
+| `vendor/gamestudio/` | [studioigor/gamestudio](https://github.com/studioigor/gamestudio) | see upstream |
+| `vendor/godogen/` | local / sibling `godogen` | see upstream |
+
+Screen inventory required-states wording in `templates/project/docs/design/UI.md` adapts [majidmanzarpour/threejs-game-skills](https://github.com/majidmanzarpour/threejs-game-skills) ui-patterns (MIT) — not vendored as a tree.
+
+Sync pins: `vendor/VENDOR.lock` via `python scripts/vendor/sync-upstream.py`.

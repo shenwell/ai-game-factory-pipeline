@@ -127,6 +127,12 @@
       "properties": {
         "engines": { "type": "array", "items": { "type": "string" } }
       }
+    },
+    "ui": {
+      "type": "object",
+      "properties": {
+        "shell": { "enum": ["deferred_mvp", "minimal_mvp", "full_mvp"] }
+      }
     }
   }
 }

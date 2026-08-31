@@ -23,6 +23,7 @@ STEP_RUNNERS = {
     "screenshots": "_step_screenshots",
     "proof_video": "_step_proof_video",
     "glb_import": "_step_glb_import",
+    "ui_contract": "_step_ui_contract",
 }
 
 
@@ -133,6 +134,32 @@ def _step_glb_import(project_root: Path) -> dict[str, Any]:
         "ok": ok,
         "exit_code": 0 if ok else 1,
         "evidence": [relpath(project_root, p) for p in glbs[:5]],
+    }
+
+
+def _step_ui_contract(project_root: Path) -> dict[str, Any]:
+    ui_path = project_root / "docs" / "design" / "UI.md"
+    if not ui_path.is_file():
+        return {
+            "name": "ui_contract",
+            "ok": False,
+            "exit_code": 1,
+            "error_category": "missing docs/design/UI.md",
+        }
+    text = ui_path.read_text(encoding="utf-8")
+    required = (
+        "## Screen inventory",
+        "## Deferred waiver",
+        "deferred_mvp",
+    )
+    missing = [h for h in required if h not in text]
+    ok = not missing and len(text.strip()) > 200
+    return {
+        "name": "ui_contract",
+        "ok": ok,
+        "exit_code": 0 if ok else 1,
+        "evidence": [relpath(project_root, ui_path)],
+        "error_category": f"missing sections: {', '.join(missing)}" if missing else None,
     }
 
 

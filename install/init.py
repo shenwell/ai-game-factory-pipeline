@@ -10,7 +10,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-FACTORY_VERSION = "1.1.2"
+FACTORY_VERSION = "1.1.3"
 FORBIDDEN_IN_TARGET = {".git"}
 
 
@@ -86,6 +86,12 @@ def _publish_skills(factory_root: Path, target: Path) -> None:
     _copy_tree(vendor / "godot_cli_control" / "skill", agents / "godot-cli-control")
     _copy_tree(vendor / "godot_cli_control" / "skill", cursor / "godot-cli-control")
 
+    for ui_skill in ("game-ui-ux", "godot-ui-control", "input-systems"):
+        src = vendor / ui_skill
+        if src.exists():
+            _copy_tree(src, agents / ui_skill)
+            _copy_tree(src, cursor / ui_skill)
+
     for name in (
         "game-factory-mvp",
         "game-factory-produce",
@@ -93,6 +99,7 @@ def _publish_skills(factory_root: Path, target: Path) -> None:
         "game-factory-status",
         "game-factory-config",
         "game-factory-onboard",
+        "game-factory-ui",
     ):
         src = factory_root / "templates" / "skills" / name
         if src.exists():

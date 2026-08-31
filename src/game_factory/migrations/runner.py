@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
@@ -91,6 +92,53 @@ def migrate_1_0_to_1_1(project_root: Path, manifest: dict[str, Any]) -> dict[str
 
 
 _register("1.0.0", "1.1.0", migrate_1_0_to_1_1)
+
+
+def _templates_root() -> Path:
+    return Path(__file__).resolve().parents[3] / "templates" / "project"
+
+
+def _copy_template_file(project_root: Path, rel: str, *, skip_existing: bool = True) -> None:
+    src = _templates_root() / rel
+    dst = project_root / rel
+    if skip_existing and dst.exists():
+        return
+    if not src.is_file():
+        return
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, dst)
+
+
+def migrate_1_1_3_ui(project_root: Path, manifest: dict[str, Any]) -> dict[str, Any]:
+    for rel in (
+        "docs/design/UI.md",
+        "docs/MVP_DONE.md",
+        "docs/DONE.md",
+        "docs/PLAYTEST.md",
+        "docs/ONBOARDING.md",
+        ".cursor/commands/game-factory-ui.md",
+    ):
+        _copy_template_file(project_root, rel, skip_existing=True)
+
+    cfg_path = project_root / "game-factory.config.yaml"
+    if cfg_path.exists():
+        data = yaml.safe_load(cfg_path.read_text(encoding="utf-8"))
+        data.setdefault("ui", {"shell": "deferred_mvp"})
+        gates = data.setdefault("gates", {})
+        full = list(gates.get("full") or [])
+        if "ui_contract" not in full:
+            full.append("ui_contract")
+            gates["full"] = full
+        jsonschema.validate(data, load_schema("game-factory.config.schema.json"))
+        cfg_path.write_text(yaml.safe_dump(data, sort_keys=False, allow_unicode=True), encoding="utf-8")
+
+    manifest["factory_version"] = "1.1.3"
+    manifest["upgraded_at"] = datetime.now(timezone.utc).isoformat()
+    return manifest
+
+
+for _from in ("1.1.0", "1.1.1", "1.1.2"):
+    _register(_from, "1.1.3", migrate_1_1_3_ui)
 
 
 def run_migrations(project_root: Path, target_version: str) -> dict[str, Any]:

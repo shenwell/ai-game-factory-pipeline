@@ -1,0 +1,5 @@
+# Copy to `.studio/zones.conf` at project root for gamestudio UI diff checks.
+# See `.game-factory/vendor/gamestudio/ui-diff-check.sh` and PORTING.md.
+
+LOGIC_GLOBS=('scripts/*' 'scenes/game/*' 'scenes/levels/*' 'test/*')
+UI_GLOBS=('scenes/ui/*' 'ui/*' '*.theme' 'ui/theme/*' 'scripts/ui/*')

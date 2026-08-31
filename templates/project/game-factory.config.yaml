@@ -17,7 +17,7 @@ pipeline:
 
 gates:
   fast: [config, drift, build, unit]
-  full: [fast, scene_build, import, launch, gameplay, errors, glb_import]
+  full: [fast, scene_build, import, launch, gameplay, errors, glb_import, ui_contract]
   visual: [full, screenshots, proof_video]
   wall_seconds_blocker: null
 
@@ -58,3 +58,6 @@ orchestration:
 
 hosts:
   engines: [godot]
+
+ui:
+  shell: deferred_mvp
