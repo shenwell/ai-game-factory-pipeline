@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Repository renamed to **ai-game-factory-pipeline**; public README covers full pipeline capabilities.
+
 - Agent rule: do not copy another project’s implementation unless the user names the source and what to take (`AGENTS.md`, installed-game template).
 
 ## 1.1.3

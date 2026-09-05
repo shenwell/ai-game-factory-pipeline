@@ -1,6 +1,6 @@
 # Third-party notices
 
-ai-game-factory glue code is MIT (see LICENSE).
+AI Game Factory Pipeline glue code is MIT (see LICENSE).
 
 ## Vendored upstream
 

@@ -1,4 +1,4 @@
-# ai-game-factory — agent guide
+# AI Game Factory Pipeline — agent guide
 
 This repository is the **factory** (Python CLI, templates, vendor sync), not a Godot game. Installed games get their own `AGENTS.md` from `templates/project/`.
 
@@ -86,4 +86,4 @@ Portfolio memory (`GLOBAL_MEMORY_ROOT`) is **not** configured for this repo.
 
 ## Installed game projects (out of scope here)
 
-Games created by init use `templates/project/AGENTS.md`, `game-factory.config.yaml`, and `.game-factory/state.json`. Develop those in the game repo, not in ai-game-factory.
+Games created by init use `templates/project/AGENTS.md`, `game-factory.config.yaml`, and `.game-factory/state.json`. Develop those in the game repo, not in AI Game Factory Pipeline.

@@ -36,7 +36,7 @@ REQUIRED_FILES = (
 )
 
 NEXT_STEPS = [
-    "Work in this game folder, not in the ai-game-factory repo.",
+    "Work in this game folder, not in the AI Game Factory Pipeline repo.",
     "Set project.name and project.display_name in game-factory.config.yaml.",
     "Copy .env.example to .env and set KIE_API_KEY (https://kie.ai/api-key) if you will generate assets.",
     "Install Godot 4.7.x .NET and .NET SDK 9 so they are on PATH.",

@@ -1,6 +1,6 @@
 # Onboarding
 
-This folder is the **game**. The factory (`ai-game-factory`) stays in its own repo.
+This folder is the **game**. The factory ([AI Game Factory Pipeline](https://github.com/shenwell/ai-game-factory-pipeline)) stays in its own repo.
 
 ## After install
 

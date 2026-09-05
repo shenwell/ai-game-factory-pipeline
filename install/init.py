@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Init, upgrade, and overlay install for ai-game-factory projects."""
+"""Init, upgrade, and overlay install for AI Game Factory Pipeline game projects."""
 
 from __future__ import annotations
 
@@ -258,7 +258,7 @@ def upgrade_project(factory_root: Path, target: Path) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Initialize or upgrade game-factory project")
     parser.add_argument("--out", required=True, help="Target directory")
-    parser.add_argument("--factory-root", default=None, help="Path to ai-game-factory repo")
+    parser.add_argument("--factory-root", default=None, help="Path to ai-game-factory-pipeline repo")
     parser.add_argument("--upgrade", action="store_true", help="Upgrade existing factory project")
     parser.add_argument("--into-existing", action="store_true", help="Overlay onto existing Godot project")
     args = parser.parse_args()

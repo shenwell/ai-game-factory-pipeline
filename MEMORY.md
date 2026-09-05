@@ -1,6 +1,6 @@
 # Project memory
 
-Entry point for **how we develop ai-game-factory** — process, approach, gotchas, handoffs.
+Entry point for **how we develop AI Game Factory Pipeline** — process, approach, gotchas, handoffs.
 
 **This is not canon.** Game design, factory architecture, and agent rules live elsewhere (see [AGENTS.md](AGENTS.md) § Canon vs memory).
 

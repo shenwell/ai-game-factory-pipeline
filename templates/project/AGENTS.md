@@ -62,7 +62,7 @@ Two human gates per run: design approval (`awaitingDesignApproval`) and playtest
 
 ## CLI
 
-From project root (with venv or `pip install -e` on ai-game-factory):
+From project root (with venv or `pip install -e` on [ai-game-factory-pipeline](https://github.com/shenwell/ai-game-factory-pipeline)):
 
 ```text
 game-factory onboard
