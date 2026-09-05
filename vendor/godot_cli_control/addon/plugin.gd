@@ -24,7 +24,7 @@ func _ensure_project_settings() -> void:
 		GameBridgeScript.SETTING_AUTO_ENABLE,
 		false,
 		TYPE_BOOL,
-		"Auto-start CLI control server in debug builds (release always disabled). Second Games: default OFF — only --cli-control / GODOT_CLI_CONTROL=1 (daemon).",
+		"Auto-start CLI control server in debug builds (release always disabled). Default OFF — use --cli-control / GODOT_CLI_CONTROL=1 (daemon).",
 	)
 	_register_setting(
 		GameBridgeScript.SETTING_OUTBOUND_BUFFER_MB,

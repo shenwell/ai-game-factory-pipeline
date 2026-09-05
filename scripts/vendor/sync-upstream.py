@@ -68,7 +68,7 @@ SOURCES = {
     },
     "godot_cli_control": {
         "type": "local",
-        "path": _local_source("GODOT_CLI_CONTROL_ROOT", "Second Games"),
+        "path": _local_source("GODOT_CLI_CONTROL_ROOT", "godot-cli-control"),
         "copy": [
             ("addons/godot_cli_control", "godot_cli_control/addon"),
             (".cursor/skills/godot-cli-control", "godot_cli_control/skill"),
@@ -190,6 +190,13 @@ def _patch_kie_video_env_paths(text: str) -> str:
     return text
 
 
+def _patch_godot_cli_plugin(text: str) -> str:
+    return text.replace(
+        "Second Games: default OFF — only --cli-control",
+        "Default OFF — use --cli-control",
+    )
+
+
 def apply_patches() -> None:
     patches = VENDOR / "patches"
     kie_skill = patches / "asset-gen-SKILL-kie-only.md"
@@ -203,6 +210,12 @@ def apply_patches() -> None:
         patched = _patch_kie_video_env_paths(original)
         if patched != original:
             kie_video.write_text(patched, encoding="utf-8")
+    plugin = VENDOR / "godot_cli_control" / "addon" / "plugin.gd"
+    if plugin.exists():
+        original = plugin.read_text(encoding="utf-8")
+        patched = _patch_godot_cli_plugin(original)
+        if patched != original:
+            plugin.write_text(patched, encoding="utf-8")
 
 
 def main() -> int:

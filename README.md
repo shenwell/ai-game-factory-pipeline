@@ -1,23 +1,58 @@
-# AI Game Factory Pipeline
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                                                                              ║
+║   _|_|    _|_|_|        _|_|_|    _|_|    _|      _|  _|_|_|_|               ║
+║ _|    _|    _|        _|        _|    _|  _|_|  _|_|  _|                     ║
+║ _|_|_|_|    _|        _|  _|_|  _|_|_|_|  _|  _|  _|  _|_|_|                 ║
+║ _|    _|    _|        _|    _|  _|    _|  _|      _|  _|                     ║
+║ _|    _|  _|_|_|        _|_|_|  _|    _|  _|      _|  _|_|_|_|               ║
+║                                                                              ║
+║ _|_|_|_|    _|_|      _|_|_|  _|_|_|_|_|    _|_|    _|_|_|    _|      _|     ║
+║ _|        _|    _|  _|            _|      _|    _|  _|    _|    _|  _|       ║
+║ _|_|_|    _|_|_|_|  _|            _|      _|    _|  _|_|_|        _|         ║
+║ _|        _|    _|  _|            _|      _|    _|  _|    _|      _|         ║
+║ _|        _|    _|    _|_|_|      _|        _|_|    _|    _|      _|         ║
+║                                                                              ║
+║ _|_|_|    _|_|_|  _|_|_|    _|_|_|_|  _|        _|_|_|  _|      _|  _|_|_|_| ║
+║ _|    _|    _|    _|    _|  _|        _|          _|    _|_|    _|  _|       ║
+║ _|_|_|      _|    _|_|_|    _|_|_|    _|          _|    _|  _|  _|  _|_|_|   ║
+║ _|          _|    _|        _|        _|          _|    _|    _|_|  _|       ║
+║ _|        _|_|_|  _|        _|_|_|_|  _|_|_|_|  _|_|_|  _|      _|  _|_|_|_| ║
+║                                                                              ║
+║           Agent-driven Godot 4 .NET pipeline — design gates to v1            ║
+║            Cursor - Claude Code - Codex - Windsurf - and more ...            ║
+║        game-factory-mvp - playtest - produce - ui - KIE assets - MIT         ║
+║        git clone https://github.com/shenwell/ai-game-factory-pipeline        ║
+║                                                                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Godot 4.7 .NET](https://img.shields.io/badge/Godot-4.7%20.NET-informational)](https://godotengine.org/)
 [![Agent Skills](https://img.shields.io/badge/Agent%20Skills-compatible-black)](https://agentskills.io/)
+[![game-factory](https://img.shields.io/badge/CLI-game--factory-black)](https://github.com/shenwell/ai-game-factory-pipeline)
 
-**Agent-driven pipeline that scaffolds a Godot 4 .NET/C# game project and walks it from design to v1** — not a game itself.
+**Agent-driven [Agent Skills](https://agentskills.io/) pipeline for Godot 4.7 .NET / C# games** — scaffolds a project and walks it from design docs to MVP playtest, production batches, UI shell, and v1. **Not a game itself.**
 
-Repository: [`shenwell/ai-game-factory-pipeline`](https://github.com/shenwell/ai-game-factory-pipeline) · CLI entry point: `game-factory` · Current version: **1.1.3**
+- **`game-factory-mvp`** — design canon (`GAME.md`, `GDD.md`, `LOOPS.md`, `UI.md`) → human design gate → core loop MVP → verify → playtest stop
+- **`game-factory-playtest`** — human playtest verdict (`PLAYTEST.md`); MVP judges **loop only** (`ui.shell: deferred_mvp`)
+- **`game-factory-produce`** — studio production batches per vendored `gamestudio` / `STUDIO.md`
+- **`game-factory-ui`** — screen inventory at design; full menu/pause/settings shell in production
+- **`asset-gen`** — Kie.ai images/video (`KIE_API_KEY` in game `.env`, gitignored)
+- **`game-factory` CLI** — state machine, gates (`fast` / `full` / `visual`), config validation, worktrees, optional Orca adapter
 
-You install the factory into an **empty directory** (or overlay an existing Godot repo). Cursor slash commands and skills drive each phase. Two **human gates** stop the agent before MVP code and before production. Kie.ai generates images and video; `gamestudio` rules govern studio-style production batches.
+Stops the common failure mode: the agent improvises menus, skips design approval, and ships a loop with no path to v1.
+
+Repository: [`shenwell/ai-game-factory-pipeline`](https://github.com/shenwell/ai-game-factory-pipeline) · CLI: `game-factory` · version **1.1.3**
 
 ```
-  YOU + CURSOR                    PIPELINE                         SHIPPED GAME
-     │                               │                                  │
-     │  /game-factory-mvp            │  design → MVP loop → playtest    │
-     ├──────────────────────────────►│  → production → UI shell → v1  │
-     │                               ├─────────────────────────────────►│
-     │                               │     Godot project + docs canon   │
+shenwell/ai-game-factory-pipeline
+├── install/init.py              ← scaffold a new Godot game repo
+├── templates/project/           ← GAME.md, GDD, UI.md, gates, state machine
+├── templates/skills/            ← game-factory-mvp, produce, playtest, ui, …
+├── src/game_factory/            ← Python CLI
+└── vendor/                      ← game-design, gamestudio, UI skills, godot-cli-control
 ```
 
 ---
@@ -32,8 +67,6 @@ You install the factory into an **empty directory** (or overlay an existing Godo
 | **Agent skills** | MVP / produce / playtest / UI orchestration + vendored `game-design`, UI, assets, godot-cli-control |
 | **Game canon** | `GAME.md`, `GDD.md`, `LOOPS.md`, **`UI.md`**, `MVP_DONE.md`, `DONE.md` in the **game** repo |
 | **Machine state** | `.game-factory/state.json` — phase only; resume, never restart from scratch |
-
-Stops the common failure mode: the agent improvises menus, skips design approval, and ships a loop with no path to v1.
 
 ---
 
@@ -63,9 +96,22 @@ Details: [`docs/STATE-MACHINE.md`](docs/STATE-MACHINE.md)
 
 ## Who this is for
 
-- Teams building **Godot 4.7.x .NET / C#** games with **Cursor** (or any agent that reads Agent Skills)
+- Teams building **Godot 4.7.x .NET / C#** games with a **coding agent** (Cursor, Claude Code, Codex, Windsurf, or any host that reads [Agent Skills](https://agentskills.io/))
 - Developers who want **phased delivery**: design sign-off → playable MVP → human playtest → production → v1 checklist
 - Anyone who needs a **repeatable** scaffold (config, gates, skills, studio rules) instead of one-off agent prompts
+
+### Agent hosts
+
+The pipeline is **not Cursor-only**. Init copies the same skills into **`.agents/skills/`** and **`.cursor/skills/`**. The Python CLI, `AGENTS.md`, design canon, gates, and state machine work the same regardless of host.
+
+| Host | What you get after `install/init.py` |
+|------|--------------------------------------|
+| **Cursor** | Skills + `/game-factory-*` slash commands + `.cursor/rules` |
+| **Claude Code** | Skills under `.agents/skills/`; invoke by skill name or paste the skill prompt |
+| **Codex / Windsurf / others** | Same `.agents/skills/` tree; use the host’s skill discovery or `@` skill references |
+| **Any agent** | `game-factory` CLI, `AGENTS.md`, `docs/`, `.game-factory/state.json` |
+
+**Cursor** is the best-documented path because slash commands map 1:1 to skills. On other hosts, open the matching `SKILL.md` (e.g. `game-factory-mvp`) or ask the agent to follow `AGENTS.md` and resume from `.game-factory/state.json`.
 
 ## Who this is not for
 
@@ -82,7 +128,7 @@ Details: [`docs/STATE-MACHINE.md`](docs/STATE-MACHINE.md)
 | Python | 3.11+ | CLI and init |
 | Godot | 4.7.x **.NET** build | Run and export the game |
 | .NET SDK | 9.x | `dotnet build` gate |
-| Cursor (recommended) | recent | Slash commands and skills |
+| Coding agent | Cursor, Claude Code, Codex, Windsurf, … | Skills + orchestration (Cursor also gets slash commands) |
 | Kie.ai API key | optional | Image/video generation; procedural fallback without it |
 
 ---
@@ -113,11 +159,25 @@ cd ../my-new-game
 game-factory onboard
 ```
 
-### 3. Run the pipeline in Cursor
+### 3. Run the pipeline with your agent
+
+**Cursor** — slash commands:
 
 ```text
 /game-factory-onboard
 /game-factory-mvp
+```
+
+**Claude Code, Codex, Windsurf, or other Agent Skills hosts** — point the agent at the installed game repo and ask it to follow `AGENTS.md` and the skill for the current phase, for example:
+
+```text
+Follow skill game-factory-mvp and resume from .game-factory/state.json
+```
+
+Or install skills globally from a game checkout (example for Cursor; add `-a claude-code -a codex` as needed):
+
+```bash
+npx skills add . --skill game-factory-mvp -a cursor -y
 ```
 
 The agent reads `.game-factory/state.json` and **resumes** the current phase.
@@ -135,9 +195,11 @@ game-factory migrate
 
 ---
 
-## Cursor commands (installed into each game)
+## Commands and skills (installed into each game)
 
-| Command | Skill | Purpose |
+On **Cursor**, these map to slash commands. On **other hosts**, use the **Skill** column — same `SKILL.md` files under `.agents/skills/` and `.cursor/skills/`.
+
+| Cursor command | Skill | Purpose |
 |---------|-------|---------|
 | `/game-factory-onboard` | `game-factory-onboard` | Post-install checks and next steps |
 | `/game-factory-mvp` | `game-factory-mvp` | Design → gates → MVP build → verify → playtest stop |

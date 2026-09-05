@@ -8,6 +8,6 @@
 Local sources are **siblings of this repo**, not absolute Windows paths:
 
 - `godogen` → `../godogen` or env `GODOGEN_ROOT`
-- `godot_cli_control` → `../Second Games` or env `GODOT_CLI_CONTROL_ROOT`
+- `godot_cli_control` → `../godot-cli-control` or env `GODOT_CLI_CONTROL_ROOT`
 
 Git sources: gamestudio (clone), game-design (sparse).
